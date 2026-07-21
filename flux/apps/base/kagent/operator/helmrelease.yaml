@@ -1,0 +1,117 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: kagent
+spec:
+  interval: 1m0s
+  url: oci://ghcr.io/kagent-dev/kagent/helm/kagent
+  ref:
+    # renovate: datasource=github-releases depName=kagent-dev/kagent
+    tag: 0.9.11
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kagent
+spec:
+  interval: 1m0s
+  releaseName: kagent
+  chartRef:
+    kind: OCIRepository
+    name: kagent
+  install:
+    strategy:
+      name: RetryOnFailure
+    createNamespace: true
+    timeout: 10m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+    cleanupOnFail: true
+    timeout: 10m
+  values:
+    default: anthropic
+    revisionHistoryLimit: 2
+
+    substrateWorkerPool:
+      create: true
+      replicas: 6
+      # ateom-gvisor tag must match the substrate chart version, not the kagent version.
+      ateomImage: ghcr.io/kagent-dev/substrate/ateom-gvisor:v0.0.6
+
+    resources:
+      limits:
+        memory: 1Gi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+    securityContext:
+      capabilities:
+        drop:
+          - ALL
+      readOnlyRootFilesystem: false
+      runAsNonRoot: true
+      runAsUser: 1000
+    podSecurityContext:
+      fsGroup: 1000
+
+    controller:
+      resources:
+        limits:
+          memory: 256Mi
+        requests:
+          cpu: 50m
+          memory: 128Mi
+      service:
+        appProtocol: kgateway.dev/mcp
+      substrate:
+        enabled: true
+        ateApiEndpoint: "dns:///api.ate-system.svc:443"
+        ateApiInsecure: true
+        # TODO: pin runsc nightly to a known-good build for your architecture.
+        # On amd64, the 2026-06-02 nightly is confirmed stable for gVisor C/R.
+        # See home-cluster notes for sweep history.
+        # runscAMD64URL: "gs://gvisor/releases/nightly/2026-06-02/x86_64/runsc"
+        # runscAMD64SHA256: "efd12935f6654c91a1389710eb8dfa4d12b6b9be00db87526dc2eb584ad00119"
+
+    # Enable the agents relevant for this cluster
+    agents:
+      k8s-agent:
+        enabled: true
+      kgateway-agent:
+        enabled: true
+      istio-agent:
+        enabled: false
+      promql-agent:
+        enabled: true
+      observability-agent:
+        enabled: true
+      argo-rollouts-agent:
+        enabled: false
+      helm-agent:
+        enabled: true
+      cilium-policy-agent:
+        enabled: false
+      cilium-manager-agent:
+        enabled: false
+      cilium-debug-agent:
+        enabled: false
+
+    otel:
+      tracing:
+        enabled: true
+        exporter:
+          otlp:
+            # Tempo OTLP gRPC endpoint in the monitoring namespace
+            endpoint: http://tempo.monitoring.svc.cluster.local:4317
+            timeout: 15
+            insecure: true
+      logging:
+        enabled: true
+        exporter:
+          otlp:
+            endpoint: http://tempo.monitoring.svc.cluster.local:4317
+            timeout: 15
+            insecure: true

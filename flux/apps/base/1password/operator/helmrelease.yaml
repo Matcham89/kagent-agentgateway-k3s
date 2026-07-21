@@ -1,0 +1,66 @@
+---
+# yaml-language-server: $schema=https://github.com/fluxcd-community/flux2-schemas/raw/main/helmrepository-source-v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: 1password
+spec:
+  interval: 10m
+  url: https://1password.github.io/connect-helm-charts/
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: 1password-operator
+spec:
+  interval: 1m
+  chart:
+    spec:
+      chart: connect
+      version: 2.4.1
+      sourceRef:
+        kind: HelmRepository
+        name: 1password
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    connect:
+      # Credentials secret must be pre-created before Flux reconciles.
+      # See bootstrap/README.md — Step 1.
+      credentialsName: op-credentials
+      credentialsKey: 1password-credentials.json
+
+      api:
+        resources:
+          limits:
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        # Emit metrics for Prometheus scraping (ServiceMonitor CRD from kube-prometheus-stack)
+        serviceMonitor:
+          enabled: true
+          interval: 30s
+
+    operator:
+      # Deploy the operator alongside Connect (chart default is false)
+      create: true
+      # Use Connect API token auth (not 1Password service account)
+      authMethod: connect
+      # Auto-restart Deployments whose secrets are updated by the operator
+      # Chart default is false — explicitly enable for GitOps hygiene
+      autoRestart: true
+      # Token secret must be pre-created or managed via OnePasswordItem bootstrap.
+      # See bootstrap/README.md — Step 4.
+      token:
+        name: onepassword-token
+        key: token
+      # Watch all namespaces for OnePasswordItem resources (default: [])
+      watchNamespace: []

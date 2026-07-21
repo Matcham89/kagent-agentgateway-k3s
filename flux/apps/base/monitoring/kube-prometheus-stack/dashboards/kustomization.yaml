@@ -1,0 +1,13 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Dashboard ConfigMaps are added here as the cluster grows.
+# Each ConfigMap must carry the label grafana_dashboard: "1" so the
+# Grafana sidecar auto-imports it.
+#
+# Example:
+#   resources:
+#     - ./kagent-traces.yaml
+#     - ./flux-cluster.yaml
+resources: []
