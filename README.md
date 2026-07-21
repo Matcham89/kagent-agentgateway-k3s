@@ -89,6 +89,62 @@ flux logs --follow --level=error
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
 ```
 
+## Service Port Map
+
+All ports below are `ClusterIP` (cluster-internal only) unless noted otherwise
+— reach them from the mini PC's LAN via `kubectl port-forward`, not directly.
+The node's LAN IP is whatever `kubectl get nodes -o wide` reports for
+`INTERNAL-IP` (find it with that command; it depends on your network).
+
+### Commonly accessed (port-forward from the host)
+
+| Service | Namespace | Port | Purpose | Port-forward |
+|---|---|---|---|---|
+| `flux-operator` | `flux-system` | 9080 | Flux Status web UI | `kubectl port-forward -n flux-system svc/flux-operator 9080:9080` |
+| `kube-prometheus-stack-grafana` | `monitoring` | 80 | Grafana | `kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80` |
+| `kube-prometheus-stack-prometheus` | `monitoring` | 9090 | Prometheus UI | `kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090` |
+| `kube-prometheus-stack-alertmanager` | `monitoring` | 9093 | Alertmanager UI | `kubectl port-forward -n monitoring svc/kube-prometheus-stack-alertmanager 9093:9093` |
+| `loki-gateway` | `monitoring` | 80 | Loki query API (for `logcli`/Grafana Explore outside the cluster) | `kubectl port-forward -n monitoring svc/loki-gateway 3100:80` |
+| `tempo` | `monitoring` | 3200 | Tempo query API | `kubectl port-forward -n monitoring svc/tempo 3200:3200` |
+| `kagent-ui` | `kagent` | 8080 | kagent web UI | `kubectl port-forward -n kagent svc/kagent-ui 8080:8080` |
+| `kagent-controller` | `kagent` | 8083 | kagent controller API — this is the endpoint agentgateway (host) connects to | `kubectl port-forward -n kagent svc/kagent-controller 8083:8083` |
+
+### Already reachable on the host (no port-forward needed)
+
+Traefik ships with k3s by default and binds directly to the node's host ports
+via k3s `ServiceLB` — `http://<node-ip>:80` and `:443` reach it today. No
+`IngressRoute` is currently configured (this cluster intentionally has no
+ingress — see [Architecture](docs/architecture.md#agentgateway-host)), so
+nothing routes through it yet, but the ports are open on the host.
+
+| Service | Namespace | Host port |
+|---|---|---|
+| `traefik` | `kube-system` | 80, 443 |
+
+### Everything else (cluster-internal only, not meant for direct host access)
+
+| Namespace | Service | Ports |
+|---|---|---|
+| `1password` | `onepassword-connect` | 8080, 8081 |
+| `ate-system` | `api` (ate-api-server) | 443 |
+| `ate-system` | `ate-controller` | 8080 |
+| `ate-system` | `atenet-router` | 80, 443 |
+| `ate-system` | `dns` | 53 |
+| `ate-system` | `rustfs` | 9000, 9001 |
+| `ate-system` | `valkey-cluster` / `valkey-cluster-service` | 6379 (client), 16379 (cluster bus) |
+| `kagent` | `kagent-postgresql` | 5432 |
+| `kagent` | `kagent-tools` | 8084 |
+| `kagent` | `kagent-querydoc`, `kagent-grafana-mcp`, and each pre-built agent (`k8s-agent`, `helm-agent`, `istio-agent`, `cilium-*`, `kgateway-agent`, `observability-agent`, `promql-agent`, `argo-rollouts-conversion-agent`) | 8080 (MCP endpoint) |
+| `monitoring` | `loki`, `loki-headless` | 3100, 9095 |
+| `monitoring` | `loki-canary` | 3500 |
+| `monitoring` | `prometheus-operated`, `alertmanager-operated` | 9090 / 9093, 9094 |
+
+Get the live, authoritative list at any time with:
+
+```bash
+kubectl get svc -A
+```
+
 ## Secret Management
 
 Secrets are managed by the 1Password Operator. After the operator is running, create `OnePasswordItem` resources in the target namespace and the operator materialises them as Kubernetes Secrets automatically.
