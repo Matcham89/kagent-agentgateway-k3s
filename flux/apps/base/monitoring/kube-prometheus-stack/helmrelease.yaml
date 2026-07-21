@@ -1,0 +1,140 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+  namespace: monitoring
+spec:
+  interval: 1m
+  chartRef:
+    kind: OCIRepository
+    name: kube-prometheus-stack
+  install:
+    strategy:
+      name: RetryOnFailure
+    createNamespace: true
+    timeout: 10m
+    crds: Create
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+    cleanupOnFail: true
+    timeout: 10m
+    crds: CreateReplace
+  values:
+    alertmanager:
+      enabled: true
+      alertmanagerSpec:
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            memory: 128Mi
+
+    kubeStateMetrics:
+      enabled: true
+    kube-state-metrics:
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          memory: 128Mi
+      prometheus:
+        monitor:
+          enabled: true
+          interval: 30s
+          scrapeTimeout: 30s
+
+    nodeExporter:
+      enabled: true
+      operatingSystems:
+        linux:
+          enabled: true
+    prometheus-node-exporter:
+      resources:
+        requests:
+          cpu: 25m
+          memory: 32Mi
+        limits:
+          memory: 64Mi
+
+    prometheus:
+      enabled: true
+      prometheusSpec:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            memory: 1Gi
+        # Pick up all ServiceMonitors, PodMonitors and PrometheusRules cluster-wide
+        ruleSelectorNilUsesHelmValues: false
+        serviceMonitorSelectorNilUsesHelmValues: false
+        podMonitorSelectorNilUsesHelmValues: false
+        enableFeatures:
+          - native-histograms
+        # Required for Tempo metrics generator to remote-write span metrics back
+        enableRemoteWriteReceiver: true
+        # Single-node k3s: use local-path storage
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: local-path
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 20Gi
+        retention: 7d
+
+    grafana:
+      enabled: true
+      grafana.ini:
+        server:
+          root_url: "http://localhost:3000/"
+        # Anonymous access disabled — use admin credentials from secret
+        auth.anonymous:
+          enabled: false
+      # Admin credentials — override via ExternalSecret or Helm values substitution
+      # TODO: wire up admin secret via 1Password ExternalSecret
+      adminUser: admin
+      adminPassword: "" # populated from secret; see secrets/grafana-admin-secret.yaml
+      persistence:
+        enabled: false
+      service:
+        type: ClusterIP
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 256Mi
+      # Auto-discover dashboards from ConfigMaps labelled grafana_dashboard: "1"
+      sidecar:
+        dashboards:
+          enabled: true
+          label: grafana_dashboard
+          labelValue: "1"
+          searchNamespace: monitoring
+        datasources:
+          enabled: true
+      # Pre-configure Prometheus, Loki and Tempo datasources
+      additionalDataSources:
+        - name: Loki
+          type: loki
+          url: http://loki:3100
+          access: proxy
+          isDefault: false
+        - name: Tempo
+          type: tempo
+          url: http://tempo:3200
+          access: proxy
+          isDefault: false
+          jsonData:
+            tracesToLogsV2:
+              datasourceUid: loki
+            lokiSearch:
+              datasourceUid: loki

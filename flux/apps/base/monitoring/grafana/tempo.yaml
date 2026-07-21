@@ -1,0 +1,155 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tempo
+spec:
+  interval: 1m
+  chart:
+    spec:
+      chart: tempo
+      version: 1.24.4
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+  install:
+    strategy:
+      name: RetryOnFailure
+    createNamespace: true
+    timeout: 10m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+    cleanupOnFail: true
+    timeout: 10m
+  values:
+    replicas: 1
+
+    tempo:
+      repository: grafana/tempo
+      pullPolicy: IfNotPresent
+      updateStrategy: RollingUpdate
+      resources:
+        requests:
+          cpu: 50m
+          memory: 256Mi
+        limits:
+          memory: 512Mi
+
+      memBallastSizeMbs: 64
+      multitenancyEnabled: false
+      reportingEnabled: false
+
+      metricsGenerator:
+        # Enables span-metrics and service-graph metrics written back to Prometheus
+        enabled: true
+        remoteWriteUrl: "http://kube-prometheus-stack-prometheus.monitoring:9090/api/v1/write"
+
+      retention: 72h
+
+      overrides:
+        defaults:
+          metrics_generator:
+            processors:
+              - service-graphs
+              - span-metrics
+              - local-blocks
+        per_tenant_override_config: /conf/overrides.yaml
+
+      server:
+        http_listen_port: 3200
+
+      storage:
+        trace:
+          backend: local
+          local:
+            path: /var/tempo/traces
+          wal:
+            path: /var/tempo/wal
+
+      receivers:
+        otlp:
+          protocols:
+            grpc:
+              endpoint: "0.0.0.0:4317"
+            http:
+              endpoint: "0.0.0.0:4318"
+        jaeger:
+          protocols:
+            grpc:
+              endpoint: 0.0.0.0:14250
+            thrift_http:
+              endpoint: 0.0.0.0:14268
+
+    config: |
+        memberlist:
+          cluster_label: "{{ .Release.Name }}.{{ .Release.Namespace }}"
+        multitenancy_enabled: {{ .Values.tempo.multitenancyEnabled }}
+        usage_report:
+          reporting_enabled: {{ .Values.tempo.reportingEnabled }}
+        compactor:
+          compaction:
+            block_retention: {{ .Values.tempo.retention }}
+        distributor:
+          receivers:
+            {{- toYaml .Values.tempo.receivers | nindent 8 }}
+        ingester:
+          {{- toYaml .Values.tempo.ingester | nindent 6 }}
+        server:
+          {{- toYaml .Values.tempo.server | nindent 6 }}
+        storage:
+          {{- toYaml .Values.tempo.storage | nindent 6 }}
+        querier:
+          {{- toYaml .Values.tempo.querier | nindent 6 }}
+        query_frontend:
+          {{- toYaml .Values.tempo.queryFrontend | nindent 6 }}
+        overrides:
+          {{- toYaml .Values.tempo.overrides | nindent 6 }}
+          {{- if .Values.tempo.metricsGenerator.enabled }}
+        metrics_generator:
+              registry:
+                external_labels:
+                  source: tempo
+                  cluster: k3s
+              storage:
+                path: "/tmp/tempo"
+                remote_write:
+                  - url: {{ .Values.tempo.metricsGenerator.remoteWriteUrl }}
+                    send_exemplars: true
+              traces_storage:
+                path: "/tmp/traces"
+              processor:
+                span_metrics:
+                  dimensions:
+                    - gen.ai.request.model
+                    - gen.ai.system
+                    - kagent.user_id
+                    - gen.ai.usage.input_tokens
+                    - gen.ai.usage.output_tokens
+                  enable_target_info: true
+                local_blocks:
+                  flush_to_storage: true
+          {{- end }}
+
+    tempoQuery:
+      enabled: false
+
+    securityContext:
+      runAsUser: 10001
+      runAsGroup: 10001
+      fsGroup: 10001
+      runAsNonRoot: true
+
+    serviceAccount:
+      create: true
+
+    service:
+      type: ClusterIP
+
+    persistence:
+      enabled: true
+      storageClassName: local-path
+      accessModes:
+        - ReadWriteOnce
+      size: 10Gi

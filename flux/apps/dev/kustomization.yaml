@@ -1,0 +1,11 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+# Root Kustomize aggregation for all app namespaces.
+# This file is sourced by flux/clusters/k3s/cluster-apps.yaml.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ./1password
+  - ./substrate
+  - ./monitoring
+  - ./kagent
