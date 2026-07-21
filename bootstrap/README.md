@@ -8,8 +8,20 @@ Bootstrap is a two-step manual process. After that, GitOps takes over everything
 ## Prerequisites
 
 - k3s installed and running (`curl -sfL https://get.k3s.io | sh -`)
-- `kubectl` configured against the cluster (`export KUBECONFIG=/etc/rancher/k3s/k3s.yaml`)
+- **16GB+ RAM on the node.** 8GB is not enough once kube-prometheus-stack, Loki,
+  Tempo, the 6-node valkey (Redis) cluster, and the full set of kagent
+  pre-built agents are all running — pods will get OOM-killed or crash-loop
+  under memory pressure. Check current usage with `kubectl top node`.
+- `kubectl` configured against the cluster. `/etc/rancher/k3s/k3s.yaml` is
+  root-only by default; either run as root, or copy it out for your own user:
+  ```bash
+  mkdir -p ~/.kube
+  sudo cat /etc/rancher/k3s/k3s.yaml > ~/.kube/config
+  chmod 600 ~/.kube/config
+  export KUBECONFIG=~/.kube/config
+  ```
 - 1Password Connect credentials JSON downloaded from 1Password
+- A 1Password item holding your model provider API key (see Step 5)
 
 ---
 
@@ -93,6 +105,38 @@ kubectl create secret generic onepassword-token \
 
 ---
 
+## Step 5 — Configure the kagent model provider secret
+
+kagent's pre-built agents (`k8s-agent`, `helm-agent`, `istio-agent`,
+`cilium-*`, `kgateway-agent`, `observability-agent`, `promql-agent`,
+`argo-rollouts-conversion-agent`) all read an `OPENAI_API_KEY` environment
+variable from a Secret named `kagent-openai` in the `kagent` namespace.
+Without it, those pods sit in `CreateContainerConfigError` and the `kagent`
+HelmRelease never goes `Ready` (it waits on all its Deployments and retries
+every 10 minutes).
+
+This is managed via `flux/apps/base/kagent/model-secret/onepassworditem.yaml`
+— a `OnePasswordItem` CR (`itemPath: vaults/<vault-id>/items/<item-name>`)
+that the 1Password Operator materialises into the `kagent-openai` Secret.
+
+1. In 1Password, create (or reuse) an item with a field **labeled exactly
+   `OPENAI_API_KEY`** holding your key. The 1Password Operator names Secret
+   keys after the item's field labels — a field labeled `password` or
+   `credential` will *not* produce the right key, even if its value looks
+   correct.
+2. Update `spec.itemPath` in `onepassworditem.yaml` to point at that vault and
+   item. Vault names with spaces can be unreliable to resolve by name — if so,
+   look up the vault ID instead:
+   ```bash
+   TOKEN=$(kubectl get secret onepassword-token -n 1password -o jsonpath='{.data.token}' | base64 -d)
+   kubectl port-forward -n 1password svc/onepassword-connect 8080:8080 &
+   curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8080/v1/vaults
+   ```
+3. Commit and push — Flux reconciles the `OnePasswordItem`, and the Secret
+   appears automatically once the operator processes it.
+
+---
+
 ## Verify
 
 ```bash
@@ -155,6 +199,44 @@ kubectl apply -f flux/clusters/k3s/flux-instance.yaml
 ```bash
 flux reconcile kustomization cluster-apps --with-source
 flux reconcile helmrelease <name> -n <namespace>
+```
+
+### valkey (Redis) cluster stuck `CLUSTERDOWN` after a node reboot
+
+On a single-node k3s cluster, a host reboot (e.g. resizing RAM) restarts every
+pod at once, and each gets a **new pod IP**. The 6-pod valkey `StatefulSet`
+persists its cluster node table (`nodes.conf`) on its PVCs, so after reboot
+each node still has the *old* IPs for its peers and the gossip protocol can't
+reconverge on its own — symptoms are `ate-api-server` crash-looping with
+`CLUSTERDOWN The cluster is down`, which cascades into `kagent-controller`
+also crash-looping (`dial ate-api: context deadline exceeded`).
+
+Check for it:
+
+```bash
+kubectl exec -n ate-system valkey-cluster-0 -- valkey-cli cluster info | head -5
+# cluster_state:fail means this is happening
+```
+
+Fix by re-introducing each node to the others at their current IPs (no data
+loss, no PVC changes needed):
+
+```bash
+for i in 1 2 3 4 5; do
+  ip=$(kubectl get pod valkey-cluster-$i -n ate-system -o jsonpath='{.status.podIP}')
+  kubectl exec -n ate-system valkey-cluster-0 -- valkey-cli cluster meet "$ip" 6379
+done
+# wait a few seconds, then confirm:
+kubectl exec -n ate-system valkey-cluster-0 -- valkey-cli cluster info | head -3
+# cluster_state:ok
+```
+
+Then restart the pods that were crash-looping on the stale connection so they
+pick up the now-healthy cluster:
+
+```bash
+kubectl delete pod -n ate-system -l app=ate-api-server
+kubectl delete pod -n kagent -l app.kubernetes.io/name=kagent,app.kubernetes.io/component=controller
 ```
 
 ---
