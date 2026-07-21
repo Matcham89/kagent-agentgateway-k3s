@@ -27,7 +27,6 @@ spec:
     size: small
   sync:
     kind: GitRepository
-    # TODO: update to the actual remote URL once the repo is pushed
     url: https://github.com/Matcham89/kagent-agentgateway-k3s.git
     ref: refs/heads/main
     path: flux/clusters/k3s

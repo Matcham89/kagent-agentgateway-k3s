@@ -115,10 +115,31 @@ Two reusable Kustomize Components in `infra/` — include via `components:` in a
 
 | Namespace | App | Notes |
 |---|---|---|
+| `flux-system` | flux-operator | Self-managed: HelmRelease takes over the bootstrap `helm install`, tracks latest chart via `semver: "*"` |
 | `1password` | 1Password Connect + Operator | Secret source for ExternalSecrets (if added later) |
 | `ate-system` | substrate-crds + substrate-operator | gVisor sandbox runtime for kagent worker pool |
 | `monitoring` | kube-prometheus-stack, Loki, Tempo, Promtail | Full LGTM stack, local-path storage |
 | `kagent` | kagent CRDs + kagent operator | AI agent platform, OTLP traces -> Tempo |
+
+## Flux Managing Flux
+
+`flux/apps/base/flux-system/flux-operator/helmrelease.yaml` defines an
+`OCIRepository` + `HelmRelease` for the `flux-operator` chart itself, using
+the same release name (`flux-operator`) and namespace (`flux-system`) as the
+manual bootstrap `helm install`. Once Flux reconciles, this HelmRelease adopts
+that release and keeps it on the latest chart version automatically —
+`bootstrap/README.md` Step 2 is only ever used once, at first bootstrap.
+
+The `HelmRelease.spec.serviceAccountName` is set to `flux-operator`, reusing
+the cluster-admin-bound ServiceAccount the chart creates for itself (required
+since the operator installs Flux's own CRDs and controllers).
+
+**Known failure mode this avoids**: an old `flux-operator` build applying its
+internal CRD-migration patches against newer Flux distribution manifests
+(`distribution.version: 2.x` always floats to latest) fails with
+`build failed: add operation does not apply: doc is missing path: ...`. Keeping
+the operator current — either via a recent bootstrap version or this
+self-management HelmRelease — avoids it.
 
 ## Storage
 

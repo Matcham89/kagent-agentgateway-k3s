@@ -87,7 +87,7 @@ Contains the actual Kubernetes manifests: `HelmRelease`, `OCIRepository`, `HelmR
 
 | Namespace | PSS | Contents |
 |---|---|---|
-| `flux-system` | — | Flux controllers (managed by Flux Operator) |
+| `flux-system` | — | Flux controllers (managed by Flux Operator) + the flux-operator HelmRelease itself (self-managed, see below) |
 | `1password` | restricted | 1Password Connect server + Kubernetes Operator |
 | `ate-system` | privileged | Substrate CRDs + Operator (gVisor sandbox runtime) |
 | `monitoring` | privileged | Prometheus, Grafana, Loki, Tempo, Promtail |
@@ -210,6 +210,48 @@ kubectl get --raw /.well-known/openid-configuration | jq .issuer
 ```
 
 Set the result in `flux/apps/base/substrate/substrate-operator/helmrelease.yaml` under `values.auth.jwt.issuer` before pushing.
+
+---
+
+## Flux Managing Flux
+
+The Flux Operator itself is GitOps-managed after bootstrap. `bootstrap/README.md`
+Step 2 installs `flux-operator` manually via `helm install` — a one-time
+action to get the cluster far enough to reconcile Git. Once the FluxInstance
+(Step 3) is applied, `flux/apps/base/flux-system/flux-operator/helmrelease.yaml`
+defines an `OCIRepository` (tracking `semver: "*"`, i.e. always latest) and a
+`HelmRelease` that adopts that same Helm release (name `flux-operator`,
+namespace `flux-system`) and keeps it current from then on.
+
+```
+helm install flux-operator (bootstrap, one-time)
+        │
+        ▼
+FluxInstance reconciles → cluster-apps → flux-system/flux-operator HelmRelease
+        │
+        ▼
+HelmRelease adopts release "flux-operator" → tracks latest chart forever
+```
+
+This closes a real gap: without it, the operator stays pinned at whatever
+version was used at bootstrap indefinitely. An operator that's too old can
+fail applying its internal CRD-migration patches against newer Flux
+distribution manifests (`distribution.version: 2.x` in `flux-instance.yaml`
+always resolves to the latest matching release), surfacing as:
+
+```
+build failed: add operation does not apply: doc is missing path: "..." : missing value
+```
+
+on the `FluxInstance` resource, with `Stalled: True` (no automatic retry).
+The fix is to get the operator itself onto a current version — either by
+bumping the bootstrap `helm install` version, or, going forward, letting the
+self-management HelmRelease keep it there.
+
+The Flux Status web UI ships enabled by default (chart default `web.enabled:
+true`) on port 9080 of the `flux-operator` Service — reachable via
+`kubectl port-forward -n flux-system svc/flux-operator 9080:9080`, consistent
+with how Grafana is accessed in this cluster (no ingress controller).
 
 ---
 
