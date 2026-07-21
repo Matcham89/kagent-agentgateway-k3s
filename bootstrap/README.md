@@ -30,14 +30,30 @@ kubectl create secret generic op-credentials \
 
 ---
 
-## Step 2 — Install the Flux Operator (minimal, no web UI)
+## Step 2 — Install the Flux Operator
+
+This is a **one-time bootstrap install only**. Once Flux reconciles, the
+`flux-operator` HelmRelease in `flux/apps/base/flux-system/flux-operator/`
+takes over management of this same Helm release (name `flux-operator`,
+namespace `flux-system`) and keeps it updated to the latest chart version via
+GitOps — Flux manages Flux. There is no need to keep the version below current
+with the latest chart version; it will self-upgrade shortly after Step 3.
 
 ```bash
 helm install flux-operator oci://ghcr.io/controlplaneio-fluxcd/charts/flux-operator \
-  --version=0.38.1 \
+  --version=0.55.0 \
   --namespace flux-system \
   --create-namespace
 ```
+
+> **Why the version matters at bootstrap time**: the FluxInstance (Step 3)
+> asks for `distribution.version: 2.x`, which always resolves to the latest
+> matching Flux release manifests. An old `flux-operator` build applying its
+> internal CRD-migration patches against those newer manifests can fail with
+> an error like:
+> `build failed: add operation does not apply: doc is missing path: ...`
+> Keep the bootstrap version reasonably current to avoid this on first apply
+> — after that, the self-management HelmRelease keeps it current automatically.
 
 ---
 
@@ -84,6 +100,9 @@ kubectl create secret generic onepassword-token \
 flux get kustomizations -A
 flux get helmreleases -A
 
+# flux-operator has taken over its own HelmRelease (self-management)
+helm history flux-operator -n flux-system
+
 # 1Password
 kubectl get pods -n 1password
 
@@ -92,6 +111,17 @@ kubectl get pods -n monitoring
 
 # kagent
 kubectl get pods -n kagent
+```
+
+---
+
+## Accessing the Flux Web UI
+
+The Flux Status web UI is enabled by default on port 9080. Port-forward to access it:
+
+```bash
+kubectl port-forward -n flux-system svc/flux-operator 9080:9080
+# Open http://localhost:9080
 ```
 
 ---

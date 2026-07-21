@@ -1,0 +1,43 @@
+---
+# yaml-language-server: $schema=https://github.com/fluxcd-community/flux2-schemas/raw/main/ocirepository-source-v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: flux-operator
+spec:
+  interval: 30m
+  url: oci://ghcr.io/controlplaneio-fluxcd/charts/flux-operator
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+  ref:
+    # Always track the latest chart — Flux upgrades its own operator via GitOps.
+    semver: "*"
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: flux-operator
+spec:
+  interval: 30m
+  releaseName: flux-operator
+  # Reuse the cluster-admin-bound service account created by the manual
+  # bootstrap `helm install` — required for the operator to manage itself.
+  serviceAccountName: flux-operator
+  chartRef:
+    kind: OCIRepository
+    name: flux-operator
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    # Web UI is enabled (chart default) — access via:
+    # kubectl port-forward -n flux-system svc/flux-operator 9080:9080
+    web:
+      enabled: true

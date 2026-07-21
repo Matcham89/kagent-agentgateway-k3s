@@ -41,6 +41,7 @@ spec:
         chunk_encoding: snappy
       compactor:
         retention_enabled: true
+        delete_request_store: filesystem
       querier:
         max_concurrent: 4
       pattern_ingester:
