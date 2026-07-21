@@ -9,4 +9,5 @@ components:
 
 resources:
   - ./crds/ks.yaml
+  - ./model-secret/ks.yaml
   - ./operator/ks.yaml
