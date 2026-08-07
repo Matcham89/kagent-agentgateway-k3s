@@ -1,0 +1,24 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/HolmesGPT/holmesgpt/master/config/crd/bases/holmesgpt.dev_healthchecks.yaml
+# One-time HealthCheck: runs immediately on apply, stores pass/fail/error +
+# LLM rationale in .status. Re-run on demand with:
+#   kubectl annotate hc holmesgpt-self-check -n holmesgpt holmesgpt.dev/rerun=true --overwrite
+# https://holmesgpt.dev/latest/operator/health-checks/
+apiVersion: holmesgpt.dev/v1alpha1
+kind: HealthCheck
+metadata:
+  name: holmesgpt-self-check
+  labels:
+    app.kubernetes.io/part-of: holmesgpt
+    team: platform
+spec:
+  query: >-
+    Is the holmesgpt namespace healthy? Check that the holmesgpt-holmes and
+    holmesgpt-operator deployments have all replicas ready, pods are Running
+    with no recent restarts, and there are no warning events.
+  timeout: 60
+  # No alert destinations configured yet (no Slack/PagerDuty token in
+  # 1Password) — result is stored in .status only. See ../../destinations
+  # docs / this file's sibling scheduledhealthcheck.yaml comment for how to
+  # wire one up later.
+  mode: monitor

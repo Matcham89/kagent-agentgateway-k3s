@@ -73,16 +73,39 @@ spec:
         value: "grpc"
       - name: OTEL_SERVICE_NAME
         value: "holmesgpt"
+      # Default model (must match a modelList key below). The docs describe
+      # a `values.config.model` field for this, but chart 0.38.2 has no
+      # template wired to `.Values.config` at all (verified: `helm template`
+      # + grep the chart — it's silently dropped). Holmes's own config.py
+      # DOES read the plain `MODEL` env var as a fallback
+      # (Config._apply_env_fallbacks), so that's the field that actually
+      # works. Without this, holmes/config.py's backward-compat path kicks
+      # in instead: any pod with OPENAI_API_KEY set (ours has one, for the
+      # secondary model) silently gets an extra unwanted default model
+      # "gpt-5.4" injected ahead of ours. Confirmed via live pod testing.
+      - name: MODEL
+        value: "claude-sonnet-4-5"
+      # Global Slack token for HealthCheck/ScheduledHealthCheck `mode: alert`
+      # destinations (type: slack) — must be set on the Holmes API server
+      # (this chart's main values), not under `operator:` below.
+      # See ../slack-secret/onepassworditem.yaml and
+      # https://holmesgpt.dev/latest/operator/destinations/
+      #
+      # NOTE: env var name (SLACK_TOKEN) is fixed — Holmes reads it literally
+      # by that name. The Secret *key* it's sourced from is
+      # HOLMESGPT_SLACK_BOT_TOKEN, matching the 1Password item's field label
+      # (confirmed live: `kubectl get secret holmesgpt-slack -o yaml`).
+      - name: SLACK_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: holmesgpt-slack
+            key: HOLMESGPT_SLACK_BOT_TOKEN
 
     # API keys are mounted from the OnePasswordItem-managed Secrets
     # (see ../model-secret) and referenced by modelList via the envRef: sugar.
     extraEnvVarsSecrets:
       - holmesgpt-openai
       - holmesgpt-anthropic
-
-    # Default model. Must reference a key from modelList below.
-    config:
-      model: claude-sonnet-4-5
 
     modelList:
       claude-sonnet-4-5:

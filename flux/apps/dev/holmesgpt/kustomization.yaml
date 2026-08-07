@@ -10,4 +10,6 @@ components:
 
 resources:
   - ./model-secret/ks.yaml
+  - ./slack-secret/ks.yaml
   - ./holmes/ks.yaml
+  - ./health-checks/ks.yaml

@@ -8,6 +8,11 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
+  dependsOn:
+    # Alertmanager mounts the alertmanager-slack Secret as a file
+    # (alertmanagerSpec.secrets) — must exist before/while the HelmRelease
+    # reconciles so the pod isn't stuck waiting on a missing volume.
+    - name: alertmanager-slack
   interval: 1h
   path: ./flux/apps/base/monitoring/kube-prometheus-stack
   sourceRef:
