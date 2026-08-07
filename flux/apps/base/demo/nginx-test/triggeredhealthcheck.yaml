@@ -1,9 +1,15 @@
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/HolmesGPT/holmesgpt/master/config/crd/bases/holmesgpt.dev_triggeredhealthchecks.yaml
-# Watches demo/nginx-test (../../demo/nginx-test/deployment.yaml) for pod
-# template changes — i.e. any `kubectl edit`/`kubectl patch`/`kubectl set`
-# that touches the Deployment's pod spec, including a manual containerPort
-# edit intended to break it. https://holmesgpt.dev/latest/operator/triggered-health-checks/
+# Watches nginx-test (./deployment.yaml) for pod template changes — i.e. any
+# `kubectl edit`/`kubectl patch`/`kubectl set` that touches the Deployment's
+# pod spec, including a manual containerPort edit intended to break it.
+# https://holmesgpt.dev/latest/operator/triggered-health-checks/
+#
+# IMPORTANT: this resource MUST live in the same namespace as the Deployment
+# it watches ("the operator watches Deployments in namespaces where
+# TriggeredHealthCheck resources exist" — confirmed live: an earlier attempt
+# with this resource in the holmesgpt namespace watching a Deployment in
+# demo never fired, moving it here to the demo namespace fixed it).
 #
 # Manual test flow:
 #   kubectl edit deployment nginx-test -n demo
