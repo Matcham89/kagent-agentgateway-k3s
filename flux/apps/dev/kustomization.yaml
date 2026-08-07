@@ -11,3 +11,4 @@ resources:
   - ./monitoring
   - ./kagent
   - ./holmesgpt
+  - ./demo

@@ -32,6 +32,68 @@ spec:
             memory: 64Mi
           limits:
             memory: 128Mi
+        # Mounts the OnePasswordItem-managed Secret at
+        # /etc/alertmanager/secrets/alertmanager-slack/SLACK_WEBHOOK_URL —
+        # see ../alertmanager-slack/onepassworditem.yaml. Alertmanager's
+        # config has no {{ env.VAR }} templating, so the webhook URL is
+        # referenced from config.receivers below via api_url_file instead
+        # of being inlined in this (git-committed) values block.
+        secrets:
+          - alertmanager-slack
+      # Full Alertmanager config (chart default is a "null"-only receiver —
+      # see kube-prometheus-stack-alertmanager.rules / the auto-generated
+      # secret prior to this change). Route only warning/critical severity
+      # to Slack; keep the synthetic Watchdog heartbeat and info-level alerts
+      # silenced, same as the chart's own defaults.
+      config:
+        global:
+          resolve_timeout: 5m
+        inhibit_rules:
+          - source_matchers:
+              - severity = critical
+            target_matchers:
+              - severity =~ warning|info
+            equal:
+              - namespace
+              - alertname
+          - source_matchers:
+              - severity = warning
+            target_matchers:
+              - severity = info
+            equal:
+              - namespace
+              - alertname
+          - source_matchers:
+              - alertname = InfoInhibitor
+            target_matchers:
+              - severity = info
+            equal:
+              - namespace
+          - target_matchers:
+              - alertname = InfoInhibitor
+        route:
+          receiver: "null"
+          group_by: [namespace]
+          group_wait: 30s
+          group_interval: 5m
+          repeat_interval: 12h
+          routes:
+            - matchers:
+                - alertname = "Watchdog"
+              receiver: "null"
+            - matchers:
+                - severity =~ "warning|critical"
+              receiver: slack-warnings
+              continue: false
+        receivers:
+          - name: "null"
+          - name: slack-warnings
+            slack_configs:
+              - api_url_file: /etc/alertmanager/secrets/alertmanager-slack/SLACK_WEBHOOK_URL
+                channel: "#home-cluster"
+                send_resolved: true
+        templates:
+          - /etc/alertmanager/config/*.tmpl
 
     kubeStateMetrics:
       enabled: true

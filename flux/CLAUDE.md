@@ -119,9 +119,10 @@ Two reusable Kustomize Components in `infra/` — include via `components:` in a
 | `flux-system` | flux-operator | Self-managed: HelmRelease takes over the bootstrap `helm install`, tracks latest chart via `semver: "*"` |
 | `1password` | 1Password Connect + Operator | Secret source for ExternalSecrets (if added later) |
 | `ate-system` | substrate-crds + substrate-operator | gVisor sandbox runtime for kagent worker pool |
-| `monitoring` | kube-prometheus-stack, Loki, Tempo, Promtail | Full LGTM stack, local-path storage |
+| `monitoring` | kube-prometheus-stack, Loki, Tempo, Promtail | Full LGTM stack, local-path storage. Alertmanager routes `severity=~warning|critical` to Slack `#homelab-alerts` (see `monitoring/alertmanager-slack`) |
 | `kagent` | kagent CRDs + kagent operator | AI agent platform, OTLP traces -> Tempo |
-| `holmesgpt` | HolmesGPT (holmes chart, `operator.enabled: true`) | AI troubleshooting: single chart bundles the API server + Holmes Operator (HealthCheck/ScheduledHealthCheck CRDs). Default model Anthropic (`claude-sonnet-4-5`), OpenAI as secondary. Queries kube-prometheus-stack/Loki/Tempo as toolsets, and emits its own OTel traces to Tempo (`OTEL_EXPORTER_OTLP_ENDPOINT`) |
+| `holmesgpt` | HolmesGPT (holmes chart, `operator.enabled: true`) | AI troubleshooting: single chart bundles the API server + Holmes Operator (HealthCheck/ScheduledHealthCheck CRDs). Default model Anthropic (`claude-sonnet-4-5`), OpenAI as secondary. Queries kube-prometheus-stack/Loki/Tempo as toolsets, emits its own OTel traces to Tempo, and posts `mode: alert` ScheduledHealthCheck failures to Slack `#homelab-alerts` via a bot token |
+| `demo` | daily-failing-job (CronJob) | Synthetic failure (`exit 1`, `0 8 * * *`) for exercising the KubeJobFailed -> Alertmanager -> Slack and Holmes daily-check -> Slack pipelines end-to-end |
 
 ## Flux Managing Flux
 
@@ -160,8 +161,17 @@ substrate-operator (ate-system)  ->  kagent-operator
 kube-prometheus-stack  ->  grafana (Loki + Tempo + Promtail)
 kube-prometheus-stack  ->  kagent-operator (for ServiceMonitor CRDs)
 1password-operator (1password)  ->  holmesgpt-model-secret
-holmesgpt-model-secret, kube-prometheus-stack, grafana  ->  holmesgpt-holmes
+1password-operator (1password)  ->  holmesgpt-slack-secret
+1password-operator (1password)  ->  alertmanager-slack (monitoring)
+alertmanager-slack (monitoring) ->  kube-prometheus-stack
+holmesgpt-model-secret, holmesgpt-slack-secret, kube-prometheus-stack, grafana  ->  holmesgpt-holmes
+holmesgpt-holmes  ->  holmesgpt-health-checks
 ```
+
+demo/daily-failing-job has no dependsOn — it's a standalone CronJob and doesn't
+need anything else up first. It's timed (`0 8 * * *`) to run 1h before
+holmesgpt's cluster-health-daily ScheduledHealthCheck (`0 9 * * *`) purely for
+demo narrative pacing, not an actual Flux dependency.
 
 ## Substrate Notes
 

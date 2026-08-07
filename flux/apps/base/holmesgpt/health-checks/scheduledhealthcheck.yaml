@@ -1,0 +1,37 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/HolmesGPT/holmesgpt/master/config/crd/bases/holmesgpt.dev_scheduledhealthchecks.yaml
+# Recurring cluster-wide health check (Holmes Operator's CronJob-equivalent).
+# Each run creates a child HealthCheck resource and costs >=1 LLM call —
+# starting at once/day per the operator's own cost-caution guidance
+# (https://holmesgpt.dev/latest/operator/scheduled-health-checks/#creating-a-scheduled-check).
+# Bump the schedule once you've seen a few runs and are happy with cost/signal.
+apiVersion: holmesgpt.dev/v1alpha1
+kind: ScheduledHealthCheck
+metadata:
+  name: cluster-health-daily
+  labels:
+    app.kubernetes.io/part-of: holmesgpt
+    team: platform
+spec:
+  # 09:00 UTC — 1h after demo/daily-failing-job runs (0 8 * * *, see
+  # ../../demo/failing-job/cronjob.yaml), so there's always something real
+  # for Holmes to find and a good pairing with Alertmanager's own
+  # independent KubeJobFailed notification.
+  schedule: "0 9 * * *" # daily at 09:00 UTC — 1 run/day
+  query: >-
+    Is the k3s cluster healthy overall? Check for any failed or
+    not-completed Jobs/CronJobs, pods in CrashLoopBackOff, ImagePullBackOff,
+    or stuck Pending state across all namespaces, nodes under memory or CPU
+    pressure, and any warning events from the last hour. If you find a
+    failed Job, name it explicitly and include its logs.
+  timeout: 90
+  enabled: true
+  # Posts to Slack on failure via the global SLACK_TOKEN configured on the
+  # Holmes API server (holmes/helmrelease.yaml additionalEnvVars) — the bot
+  # must be invited to the channel (/invite) or posting fails with
+  # "not_in_channel". See ../slack-secret/onepassworditem.yaml.
+  mode: alert
+  destinations:
+    - type: slack
+      config:
+        channel: "#homelab-alerts"

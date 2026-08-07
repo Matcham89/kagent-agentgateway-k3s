@@ -9,5 +9,6 @@ components:
   - ../../../infra/namespace-privileged
 
 resources:
+  - ./alertmanager-slack/ks.yaml
   - ./kube-prometheus-stack/ks.yaml
   - ./grafana/ks.yaml

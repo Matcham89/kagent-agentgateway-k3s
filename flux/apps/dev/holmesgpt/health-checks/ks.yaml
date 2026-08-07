@@ -3,25 +3,21 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app holmesgpt-holmes
+  name: &app holmesgpt-health-checks
 spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
   dependsOn:
-    - name: holmesgpt-model-secret
-    - name: holmesgpt-slack-secret
-    - name: kube-prometheus-stack
-      namespace: monitoring
-    - name: grafana
-      namespace: monitoring
+    # Needs the Holmes Operator's CRDs + controller running to reconcile.
+    - name: holmesgpt-holmes
   interval: 1h
-  path: ./flux/apps/base/holmesgpt/holmes
+  path: ./flux/apps/base/holmesgpt/health-checks
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
   targetNamespace: holmesgpt
-  timeout: 10m
+  timeout: 5m
   prune: true
   wait: true
