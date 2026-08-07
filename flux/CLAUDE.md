@@ -9,6 +9,7 @@ A Flux CD v2 GitOps repository for a single-node k3s cluster running:
 - **1Password Operator** (Connect + Operator)
 - **Grafana LGTM stack** (Prometheus, Grafana, Loki, Tempo, Promtail)
 - **kagent** (AI agent platform)
+- **HolmesGPT** (AI troubleshooting agent + Holmes Operator for scheduled health checks)
 
 agentgateway runs **outside** the cluster as a standalone process.
 
@@ -120,6 +121,7 @@ Two reusable Kustomize Components in `infra/` — include via `components:` in a
 | `ate-system` | substrate-crds + substrate-operator | gVisor sandbox runtime for kagent worker pool |
 | `monitoring` | kube-prometheus-stack, Loki, Tempo, Promtail | Full LGTM stack, local-path storage |
 | `kagent` | kagent CRDs + kagent operator | AI agent platform, OTLP traces -> Tempo |
+| `holmesgpt` | HolmesGPT (holmes chart, `operator.enabled: true`) | AI troubleshooting: single chart bundles the API server + Holmes Operator (HealthCheck/ScheduledHealthCheck CRDs). Default model Anthropic (`claude-sonnet-4-5`), OpenAI as secondary. Queries kube-prometheus-stack/Loki/Tempo as toolsets, and emits its own OTel traces to Tempo (`OTEL_EXPORTER_OTLP_ENDPOINT`) |
 
 ## Flux Managing Flux
 
@@ -157,6 +159,8 @@ kagent-crds      ->  kagent-operator
 substrate-operator (ate-system)  ->  kagent-operator
 kube-prometheus-stack  ->  grafana (Loki + Tempo + Promtail)
 kube-prometheus-stack  ->  kagent-operator (for ServiceMonitor CRDs)
+1password-operator (1password)  ->  holmesgpt-model-secret
+holmesgpt-model-secret, kube-prometheus-stack, grafana  ->  holmesgpt-holmes
 ```
 
 ## Substrate Notes

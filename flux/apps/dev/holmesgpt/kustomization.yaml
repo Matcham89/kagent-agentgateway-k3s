@@ -1,0 +1,13 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: holmesgpt
+components:
+  # Holmes runs as a regular read-mostly API/operator pod, no elevated
+  # host access required.
+  - ../../../infra/namespace
+
+resources:
+  - ./model-secret/ks.yaml
+  - ./holmes/ks.yaml

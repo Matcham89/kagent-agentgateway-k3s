@@ -1,0 +1,143 @@
+---
+# yaml-language-server: $schema=https://github.com/fluxcd-community/flux2-schemas/raw/main/helmrepository-source-v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: robusta
+spec:
+  interval: 10m
+  url: https://robusta-charts.storage.googleapis.com
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: holmesgpt
+spec:
+  interval: 1m
+  releaseName: holmesgpt
+  chart:
+    spec:
+      chart: holmes
+      # renovate: datasource=helm registryUrl=https://robusta-charts.storage.googleapis.com
+      version: 0.38.2
+      sourceRef:
+        kind: HelmRepository
+        name: robusta
+  install:
+    strategy:
+      name: RetryOnFailure
+    createNamespace: true
+    timeout: 10m
+    crds: Create
+    remediation:
+      retries: 3
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+    cleanupOnFail: true
+    timeout: 10m
+    crds: CreateReplace
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    logLevel: INFO
+    # `enableTelemetry` controls the chart's built-in Sentry SDK, which ships
+    # unhandled-exception reports to Robusta's (third-party, off-cluster)
+    # Sentry project. It has nothing to do with our own Grafana/Tempo stack —
+    # that's wired up separately below via OTEL_EXPORTER_OTLP_ENDPOINT, which
+    # is HolmesGPT's own OpenTelemetry instrumentation and stays fully
+    # in-cluster. Keep Sentry disabled; keep OTel enabled.
+    # https://holmesgpt.dev/latest/reference/opentelemetry/
+    enableTelemetry: false
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 1024Mi
+
+    createServiceAccount: true
+
+    # Export Holmes's own investigation traces/metrics to the cluster's Tempo,
+    # the same way kagent does (see ../../kagent/operator/helmrelease.yaml).
+    # Produces a `holmesgpt.investigation` trace per ask/health-check, with
+    # child spans per LLM call and tool/MCP invocation, plus token/latency
+    # metrics — queryable via the grafana/tempo toolset configured below.
+    additionalEnvVars:
+      - name: OTEL_EXPORTER_OTLP_ENDPOINT
+        value: "http://tempo.monitoring.svc.cluster.local:4317"
+      - name: OTEL_EXPORTER_OTLP_PROTOCOL
+        value: "grpc"
+      - name: OTEL_SERVICE_NAME
+        value: "holmesgpt"
+
+    # API keys are mounted from the OnePasswordItem-managed Secrets
+    # (see ../model-secret) and referenced by modelList via the envRef: sugar.
+    extraEnvVarsSecrets:
+      - holmesgpt-openai
+      - holmesgpt-anthropic
+
+    # Default model. Must reference a key from modelList below.
+    config:
+      model: claude-sonnet-4-5
+
+    modelList:
+      claude-sonnet-4-5:
+        model: anthropic/claude-sonnet-4-5-20250929
+        # Field label on the 1Password item is HOLMESGPT_ANTHROPIC_API_KEY
+        # (see ../model-secret/anthropic.yaml), so that's the Secret key /
+        # env var name mounted via extraEnvVarsSecrets — not ANTHROPIC_API_KEY.
+        api_key: envRef:HOLMESGPT_ANTHROPIC_API_KEY
+        temperature: 1
+        thinking:
+          budget_tokens: 10000
+          type: enabled
+      gpt-4.1:
+        model: openai/gpt-4.1
+        api_key: envRef:OPENAI_API_KEY
+        temperature: 0
+
+    toolsets:
+      kubernetes/core:
+        enabled: true
+      kubernetes/logs:
+        enabled: true
+      # Not using the Robusta SaaS platform in this cluster.
+      robusta:
+        enabled: false
+      internet:
+        enabled: true
+      prometheus/metrics:
+        enabled: true
+        subtype: prometheus
+        config:
+          # Prometheus Operator service created by kube-prometheus-stack.
+          prometheus_url: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
+      grafana/loki:
+        enabled: true
+        config:
+          # Direct connection to the in-cluster Loki (SingleBinary mode).
+          api_url: http://loki.monitoring.svc.cluster.local:3100
+      grafana/tempo:
+        enabled: true
+        config:
+          # Direct connection to the in-cluster Tempo HTTP API (kagent's OTLP
+          # traces land here too, so Holmes can correlate agent traces).
+          api_url: http://tempo.monitoring.svc.cluster.local:3200
+
+    # Holmes Operator (alpha): HealthCheck / ScheduledHealthCheck CRDs +
+    # kopf-based controller, bundled in the same chart as the API server.
+    # https://holmesgpt.dev/latest/operator/
+    operator:
+      enabled: true
+      holmesApiTimeout: 300
+      maxHistoryItems: 10
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 512Mi

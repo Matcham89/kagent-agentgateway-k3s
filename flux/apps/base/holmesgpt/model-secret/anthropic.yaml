@@ -1,0 +1,13 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/1Password/onepassword-operator/main/config/crd/bases/onepassword.com_onepassworditems.yaml
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: holmesgpt-anthropic
+spec:
+  # Materialised as Secret "holmesgpt-anthropic" with key
+  # HOLMESGPT_ANTHROPIC_API_KEY, matching the 1Password item field of the
+  # same name. This is the default model provider — referenced by
+  # modelList.claude-sonnet-4-5 in ../holmes/helmrelease.yaml via
+  # api_key: envRef:HOLMESGPT_ANTHROPIC_API_KEY.
+  itemPath: "vaults/wlgvy5jij6zg2sb25nju4nyjnm/items/HOLMESGPT_ANTHROPIC_API_KEY"
