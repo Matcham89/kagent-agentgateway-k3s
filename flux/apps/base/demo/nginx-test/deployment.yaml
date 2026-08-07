@@ -1,0 +1,110 @@
+---
+# Standalone, always-healthy-by-default nginx target for manual break/fix
+# testing. Intentionally wired so a naive `containerPort` edit causes a
+# *realistic* silent failure instead of an obvious crash:
+#
+#   - The container port is named "http" (containerPort: 80).
+#   - The readiness/liveness probes target the port BY NAME ("http"), not
+#     by number.
+#   - The Service also targets the port BY NAME ("http").
+#
+# containerPort is purely declarative — Kubernetes does not enforce it and
+# changing it does NOT change what nginx actually listens on inside the
+# container. So if you do:
+#
+#   kubectl edit deployment nginx-test -n demo
+#   # change spec.template.spec.containers[0].ports[0].containerPort
+#   # e.g. 80 -> 8080 (leave `name: http` as-is)
+#
+# ...nginx keeps listening on 80, but the probes (which resolve "http" to
+# whatever port now carries that name) start hitting 8080 -> connection
+# refused. The pod stays Running (no crash, no restart) but flips to
+# NotReady and the Service silently drops its endpoint. This is a very
+# common real-world misconfiguration and a good test of whether an
+# investigator looks past "pod is Running" to actual readiness/serving
+# state.
+#
+# This also counts as a Deployment rollout (pod template change), so it
+# fires ../../holmesgpt/health-checks/triggeredhealthcheck-nginx-test.yaml
+# automatically ~30s later.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-test
+  labels:
+    app.kubernetes.io/name: nginx-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nginx-test
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nginx-test
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            failureThreshold: 2
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 101 # nginx user in nginx:alpine
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            # readOnlyRootFilesystem needs writable dirs for nginx's own
+            # runtime files (pid, cache, tmp) — otherwise it fails to start
+            # regardless of the port test.
+            - name: tmp
+              mountPath: /tmp
+            - name: run
+              mountPath: /var/run
+            - name: cache
+              mountPath: /var/cache/nginx
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-test
+  labels:
+    app.kubernetes.io/name: nginx-test
+spec:
+  selector:
+    app.kubernetes.io/name: nginx-test
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

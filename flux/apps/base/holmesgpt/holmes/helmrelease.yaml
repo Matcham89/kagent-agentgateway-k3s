@@ -164,3 +164,22 @@ spec:
           memory: 256Mi
         limits:
           memory: 512Mi
+
+    # Lets Holmes ACT on the cluster (restart/scale/patch/exec/run diagnostic
+    # pods), not just read it — needed for "investigate AND fix" workflows
+    # like ../health-checks/triggeredhealthcheck-nginx-test.yaml.
+    # Plug-and-play: chart creates its own scoped ClusterRole (no
+    # cluster-admin, no secrets access), a locked-down NetworkPolicy, and
+    # wires approval_required_tools: ["run_kubectl_command"] automatically.
+    #
+    # IMPORTANT blast-radius note: the ClusterRole this grants is
+    # cluster-scoped by resource type (deployments/statefulsets/daemonsets/
+    # replicasets/pods/jobs/cronjobs/nodes — patch/update/delete/exec/evict),
+    # not limited to the demo namespace — the chart has no per-namespace
+    # scoping knob. Read-only + diagnostic tools run automatically anywhere
+    # in the cluster; only the mutating fallback (run_kubectl_command) is
+    # gated behind human approval, everywhere.
+    # https://holmesgpt.dev/latest/data-sources/builtin-toolsets/kubernetes-remediation-mcp/
+    mcpAddons:
+      kubernetesRemediation:
+        enabled: true

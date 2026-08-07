@@ -1,0 +1,51 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/HolmesGPT/holmesgpt/master/config/crd/bases/holmesgpt.dev_triggeredhealthchecks.yaml
+# Watches demo/nginx-test (../../demo/nginx-test/deployment.yaml) for pod
+# template changes — i.e. any `kubectl edit`/`kubectl patch`/`kubectl set`
+# that touches the Deployment's pod spec, including a manual containerPort
+# edit intended to break it. https://holmesgpt.dev/latest/operator/triggered-health-checks/
+#
+# Manual test flow:
+#   kubectl edit deployment nginx-test -n demo
+#   # change spec.template.spec.containers[0].ports[0].containerPort
+#   # e.g. 80 -> 8080 (leave `name: http` alone - see deployment.yaml comment
+#   # for why this specific edit causes a *silent* readiness failure)
+#   # -> new ReplicaSet rolls out -> operator notices the pod-template change
+#   # -> waits delaySeconds -> runs this check -> posts to Slack
+#
+# Alpha: TriggeredHealthCheck only supports the deploymentRollout trigger
+# type today.
+apiVersion: holmesgpt.dev/v1alpha1
+kind: TriggeredHealthCheck
+metadata:
+  name: nginx-test-rollout-check
+  labels:
+    app.kubernetes.io/part-of: holmesgpt
+    team: platform
+spec:
+  deploymentRollout:
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: nginx-test
+  # Short wait since this is an interactive manual test, not a real app
+  # with a slow rollout — long enough for the probe's failureThreshold
+  # (2 x 5s) to actually trip before Holmes looks.
+  delaySeconds: 30
+  # Don't re-fire on every edit if you're iterating quickly.
+  cooldownSeconds: 120
+  query: |
+    This is nginx-test in the demo namespace, a standalone sandbox target
+    with no real traffic — used purely for manual break/fix testing.
+    Investigate whether it is actually healthy and serving traffic, not
+    just whether the pod is Running: check pod readiness/probe status,
+    compare the declared containerPort/port name against what the
+    container actually listens on, and check whether the Service has a
+    healthy endpoint. If you find a root cause, state the exact kubectl
+    command to fix it. If the Kubernetes Remediation toolset is available
+    to you, apply the fix directly.
+  timeout: 90
+  mode: alert
+  destinations:
+    - type: slack
+      config:
+        channel: "#home-cluster"

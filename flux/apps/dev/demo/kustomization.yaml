@@ -9,3 +9,4 @@ components:
 
 resources:
   - ./failing-job/ks.yaml
+  - ./nginx-test/ks.yaml
