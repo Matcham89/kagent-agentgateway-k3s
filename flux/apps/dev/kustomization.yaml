@@ -10,3 +10,4 @@ resources:
   - ./substrate
   - ./monitoring
   - ./kagent
+  - ./holmesgpt

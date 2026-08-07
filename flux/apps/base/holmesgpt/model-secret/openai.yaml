@@ -1,0 +1,15 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/1Password/onepassword-operator/main/config/crd/bases/onepassword.com_onepassworditems.yaml
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: holmesgpt-openai
+spec:
+  # Materialised as Secret "holmesgpt-openai" with key OPENAI_API_KEY, reusing
+  # the same 1Password item as kagent's model-secret (see
+  # ../../kagent/model-secret/onepassworditem.yaml). Secrets are namespace
+  # scoped, so this item is re-referenced here to land a copy in the
+  # holmesgpt namespace. Only used as the secondary/fallback model
+  # (see ../holmes/helmrelease.yaml modelList.gpt-4.1) — the default model
+  # is Anthropic (see ./anthropic.yaml).
+  itemPath: "vaults/wlgvy5jij6zg2sb25nju4nyjnm/items/KAGENT_OPENAI_API_KEY"
