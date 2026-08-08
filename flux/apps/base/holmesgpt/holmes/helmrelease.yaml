@@ -195,3 +195,8 @@ spec:
         enabled: true
         auth:
           secretName: "holmesgpt-github"
+          # Chart default looks up key "token" — ours is field-labelled to
+          # match the item name instead (confirmed live via
+          # `kubectl get secret holmesgpt-github -o yaml`), same pattern as
+          # every other secret in this cluster.
+          secretKey: "HOLMESGPT_GITHUB_PAT"
