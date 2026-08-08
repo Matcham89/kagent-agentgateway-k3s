@@ -22,12 +22,9 @@ metadata:
 spec:
   interval: 30m
   releaseName: agentgateway-standalone
-  chart:
-    spec:
-      chart: agentgateway-standalone
-      sourceRef:
-        kind: OCIRepository
-        name: agentgateway-standalone
+  chartRef:
+    kind: OCIRepository
+    name: agentgateway-standalone
   install:
     strategy:
       name: RetryOnFailure
