@@ -51,6 +51,19 @@ spec:
             # https://github.com/korotovsky/slack-mcp-server#environment-variables-quick-reference
             - name: SLACK_MCP_ADD_MESSAGE_TOOL
               value: "true"
+            # Explicit writable paths for the startup users/channels cache
+            # — the image's default CWD isn't writable by a non-root UID,
+            # confirmed live ("permission denied" writing the default
+            # relative cache path). Requires the bot token to have
+            # users:read (users cache) plus channels:read, groups:read,
+            # im:read, mpim:read (channels cache covering all 4
+            # channel_types) — a failed cache warm at startup is FATAL in
+            # this version (crashes the whole process), not a graceful
+            # degradation as the project's docs imply.
+            - name: SLACK_MCP_USERS_CACHE
+              value: "/cache/users_cache.json"
+            - name: SLACK_MCP_CHANNELS_CACHE
+              value: "/cache/channels_cache.json"
           ports:
             - containerPort: 8000
               name: http
@@ -64,11 +77,14 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
-            readOnlyRootFilesystem: false # server writes its users/channels cache to disk
+            readOnlyRootFilesystem: true # all writes go to the explicit /cache volume
             runAsNonRoot: true
             runAsUser: 1000
             seccompProfile:
               type: RuntimeDefault
+          volumeMounts:
+            - name: cache
+              mountPath: /cache
           readinessProbe:
             tcpSocket:
               port: 8000
@@ -79,6 +95,9 @@ spec:
               port: 8000
             initialDelaySeconds: 10
             periodSeconds: 30
+      volumes:
+        - name: cache
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
