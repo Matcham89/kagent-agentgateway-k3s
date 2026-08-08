@@ -5,3 +5,11 @@ kind: Kustomization
 namespace: agentgateway-system
 resources:
   - helmrelease.yaml
+patchesStrategicMerge:
+  - |-
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: agentgateway-standalone
+    spec:
+      type: ClusterIP
