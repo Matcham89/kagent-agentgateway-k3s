@@ -42,5 +42,6 @@ spec:
       retries: 3
     force: true
   values:
-    service:
-      type: ClusterIP
+    gateway:
+      service:
+        type: ClusterIP
