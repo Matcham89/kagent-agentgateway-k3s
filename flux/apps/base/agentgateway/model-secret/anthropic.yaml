@@ -1,0 +1,14 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/1Password/onepassword-operator/main/config/crd/bases/onepassword.com_onepassworditems.yaml
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: agentgateway-anthropic
+spec:
+  # Materialised as Secret "agentgateway-anthropic" with key
+  # HOLMESGPT_ANTHROPIC_API_KEY, matching the 1Password item field of the
+  # same name. Same vault item as
+  # ../../holmesgpt/model-secret/anthropic.yaml, duplicated here since
+  # OnePasswordItem only materialises a Secret in its own namespace.
+  # Referenced by ../agentgateway/helmrelease.yaml's extraEnv (ANTHROPIC_API_KEY).
+  itemPath: "vaults/wlgvy5jij6zg2sb25nju4nyjnm/items/HOLMESGPT_ANTHROPIC_API_KEY"

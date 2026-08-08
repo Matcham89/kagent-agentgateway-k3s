@@ -8,4 +8,5 @@ components:
   - ../../../infra/namespace
 
 resources:
+  - ./model-secret/ks.yaml
   - ./agentgateway/ks.yaml
