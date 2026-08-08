@@ -167,7 +167,7 @@ spec:
 
     # Lets Holmes ACT on the cluster (restart/scale/patch/exec/run diagnostic
     # pods), not just read it — needed for "investigate AND fix" workflows
-    # like ../health-checks/triggeredhealthcheck-nginx-test.yaml.
+    # like ../demo/nginx-test/triggeredhealthcheck.yaml.
     # Plug-and-play: chart creates its own scoped ClusterRole (no
     # cluster-admin, no secrets access), a locked-down NetworkPolicy, and
     # wires approval_required_tools: ["run_kubectl_command"] automatically.
@@ -180,6 +180,18 @@ spec:
     # in the cluster; only the mutating fallback (run_kubectl_command) is
     # gated behind human approval, everywhere.
     # https://holmesgpt.dev/latest/data-sources/builtin-toolsets/kubernetes-remediation-mcp/
+    #
+    # `github` addon: separate MCP server, separate trust model — creating
+    # branches/commits/PRs is NOT behind the same approval gate as
+    # run_kubectl_command (a PR is a proposal, not a live mutation, so
+    # there's nothing here to gate — the PR review/merge itself is the
+    # approval step). Confirmed via docs: no approval_required_tools
+    # wiring is mentioned for this addon.
+    # https://holmesgpt.dev/latest/data-sources/builtin-toolsets/github-mcp/
     mcpAddons:
       kubernetesRemediation:
         enabled: true
+      github:
+        enabled: true
+        auth:
+          secretName: "holmesgpt-github"

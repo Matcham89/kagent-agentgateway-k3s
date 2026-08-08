@@ -39,17 +39,43 @@ spec:
   delaySeconds: 30
   # Don't re-fire on every edit if you're iterating quickly.
   cooldownSeconds: 120
+  # Full workflow this drives:
+  #   break (kubectl edit/patch) -> rollout detected -> Holmes investigates
+  #   -> fixes the SOURCE FILE in git via the GitHub MCP (not a live kubectl
+  #   mutation, which is approval-gated and always rejected in this headless
+  #   context — see holmes/helmrelease.yaml comment) -> opens a PR -> posts
+  #   the PR link to Slack. Reviewing/merging the PR *is* the human-approval
+  #   step; once merged, Flux applies it automatically (targetNamespace:
+  #   demo, path flux/apps/base/demo/nginx-test).
   query: |
     This is nginx-test in the demo namespace, a standalone sandbox target
     with no real traffic — used purely for manual break/fix testing.
-    Investigate whether it is actually healthy and serving traffic, not
-    just whether the pod is Running: check pod readiness/probe status,
-    compare the declared containerPort/port name against what the
+
+    Step 1 - Investigate: check whether it is actually healthy and serving
+    traffic, not just whether the pod is Running: check pod readiness/probe
+    status, compare the declared containerPort/port name against what the
     container actually listens on, and check whether the Service has a
-    healthy endpoint. If you find a root cause, state the exact kubectl
-    command to fix it. If the Kubernetes Remediation toolset is available
-    to you, apply the fix directly.
-  timeout: 90
+    healthy endpoint.
+
+    Step 2 - If unhealthy, fix it via a GitHub pull request (do NOT attempt
+    a live kubectl mutation - this cluster is GitOps-managed by Flux and
+    manual kubectl changes get reverted; the correct fix lives in git):
+      - Repo: Matcham89/kagent-agentgateway-k3s, base branch: main
+      - File: flux/apps/base/demo/nginx-test/deployment.yaml
+      - Create a new branch named holmes-fix-nginx-test-<short timestamp>
+      - Change ONLY the broken field (e.g. containerPort) back to match
+        the container's actual listening port - do not touch anything else
+        in the file
+      - Commit message: brief description of the root cause
+      - Open a PR against main titled "Fix nginx-test containerPort
+        mismatch" with a description containing: the root cause, the
+        evidence for it, and the exact diff
+      - Do not merge the PR yourself - a human must review and merge it
+
+    Step 3 - In your final answer (which is posted to Slack), state the
+    root cause and include the PR URL prominently so it's the approval
+    request.
+  timeout: 180
   mode: alert
   destinations:
     - type: slack
