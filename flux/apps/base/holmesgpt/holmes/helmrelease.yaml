@@ -156,7 +156,17 @@ spec:
     # https://holmesgpt.dev/latest/operator/
     operator:
       enabled: true
-      holmesApiTimeout: 300
+      # Must exceed the longest HealthCheck.spec.timeout in use (max
+      # allowed there is 300s) with real headroom. Confirmed live: with
+      # this at 300 and a GitHub-PR-creating TriggeredHealthCheck at
+      # timeout:180, the actual investigation legitimately took ~334s
+      # (extra real network round-trips to the GitHub API on top of the
+      # normal LLM tool loop) — the operator's HTTP client gave up and
+      # retried at almost exactly the 300s mark, seconds before Holmes
+      # would have returned, leaving the HealthCheck stuck in `Running`
+      # forever even though the check itself completed successfully
+      # (PR created, Slack notified).
+      holmesApiTimeout: 450
       maxHistoryItems: 10
       resources:
         requests:
@@ -181,22 +191,56 @@ spec:
     # gated behind human approval, everywhere.
     # https://holmesgpt.dev/latest/data-sources/builtin-toolsets/kubernetes-remediation-mcp/
     #
-    # `github` addon: separate MCP server, separate trust model — creating
-    # branches/commits/PRs is NOT behind the same approval gate as
-    # run_kubectl_command (a PR is a proposal, not a live mutation, so
-    # there's nothing here to gate — the PR review/merge itself is the
-    # approval step). Confirmed via docs: no approval_required_tools
-    # wiring is mentioned for this addon.
-    # https://holmesgpt.dev/latest/data-sources/builtin-toolsets/github-mcp/
     mcpAddons:
       kubernetesRemediation:
         enabled: true
+      # `github` is NOT enabled here as a chart addon anymore — that would
+      # deploy its MCP server tied to this Helm release/namespace. It now
+      # lives as a generic, shareable server in the mcp-servers namespace
+      # (see mcp_servers.github below and
+      # flux/apps/base/mcp-servers/github-mcp/deployment.yaml) so it isn't
+      # Holmes-exclusive — kagent or anything else could connect too.
+
+    # Custom MCP servers (not HolmesGPT chart addons) — both self-hosted in
+    # the shared `mcp-servers` namespace, not `holmesgpt`, specifically so
+    # they aren't tied to this Helm release and other tools in the cluster
+    # (e.g. kagent) could connect to the same servers later. See
+    # flux/apps/base/mcp-servers/.
+    #
+    # slack: no built-in HolmesGPT toolset posts threaded Slack
+    # conversations (the HealthCheck `mode: alert` destination is one-shot,
+    # single message) — this gives Holmes its own conversations_add_message
+    # tool (with thread_ts support) so a query can explicitly drive: post
+    # alert -> reply in thread with findings -> reply in thread with a PR
+    # link. Reuses the same bot token as the built-in alert destination
+    # (SLACK_TOKEN above / holmesgpt-slack secret) via a separate copy of
+    # the same 1Password item, materialised in the mcp-servers namespace.
+    #
+    # github: creating branches/commits/PRs is NOT behind the same
+    # human-approval gate as run_kubectl_command (a PR is a proposal, not a
+    # live mutation — the PR review/merge itself is the approval step).
+    # https://holmesgpt.dev/latest/data-sources/builtin-toolsets/github-mcp/
+    mcp_servers:
+      slack:
+        description: "Post and reply-in-thread to Slack channels directly (separate from the one-shot HealthCheck alert destination)"
+        config:
+          url: "http://slack-mcp-server.mcp-servers.svc.cluster.local:8000/sse"
+          mode: sse
+        llm_instructions: >-
+          Use conversations_add_message to post investigation updates to
+          Slack. Reference a channel by name with a leading # (e.g.
+          "#home-cluster"). To reply in a thread, pass the thread_ts value
+          returned by the message you're replying to as the thread_ts
+          parameter — omit thread_ts only for the first message in a new
+          conversation.
       github:
-        enabled: true
-        auth:
-          secretName: "holmesgpt-github"
-          # Chart default looks up key "token" — ours is field-labelled to
-          # match the item name instead (confirmed live via
-          # `kubectl get secret holmesgpt-github -o yaml`), same pattern as
-          # every other secret in this cluster.
-          secretKey: "HOLMESGPT_GITHUB_PAT"
+        description: "GitHub repositories, pull requests, issues, and Actions"
+        config:
+          url: "http://github-mcp-server.mcp-servers.svc.cluster.local:8000/sse"
+          mode: sse
+        llm_instructions: >-
+          Use this to open pull requests fixing GitOps-managed resources
+          (create_branch, push_files/create_or_update_file,
+          create_pull_request) instead of attempting a live kubectl
+          mutation — this cluster is GitOps-managed by Flux, so the
+          correct fix lives in git, not a live patch.

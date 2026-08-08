@@ -51,25 +51,44 @@ spec:
   delaySeconds: 30
   # Don't re-fire on every edit if you're iterating quickly.
   cooldownSeconds: 120
-  # Full workflow this drives:
-  #   break (kubectl edit/patch) -> rollout detected -> Holmes investigates
-  #   -> fixes the SOURCE FILE in git via the GitHub MCP (not a live kubectl
-  #   mutation, which is approval-gated and always rejected in this headless
-  #   context — see holmes/helmrelease.yaml comment) -> opens a PR -> posts
-  #   the PR link to Slack. Reviewing/merging the PR *is* the human-approval
-  #   step; once merged, Flux applies it automatically (targetNamespace:
-  #   demo, path flux/apps/base/demo/nginx-test).
+  # Full workflow this drives, as a single THREADED Slack conversation
+  # (not the one-shot HealthCheck `mode: alert` destination — that only
+  # sends one message, so `mode` is `monitor` here and Slack posting is
+  # driven entirely by the query using the custom slack MCP server, see
+  # ../../holmesgpt/slack-mcp/deployment.yaml and the mcp_servers.slack
+  # block in ../../holmesgpt/holmes/helmrelease.yaml):
+  #   break (kubectl edit/patch) -> rollout detected -> Holmes posts an
+  #   initial alert -> investigates -> replies in the SAME thread with
+  #   findings -> fixes the SOURCE FILE in git via the GitHub MCP (not a
+  #   live kubectl mutation, which is approval-gated and always rejected in
+  #   this headless context — see holmes/helmrelease.yaml comment) -> opens
+  #   a PR -> replies in the SAME thread again with the PR link. Reviewing/
+  #   merging the PR *is* the human-approval step; once merged, Flux
+  #   applies it automatically (targetNamespace: demo, path
+  #   flux/apps/base/demo/nginx-test).
   query: |
     This is nginx-test in the demo namespace, a standalone sandbox target
-    with no real traffic — used purely for manual break/fix testing.
+    with no real traffic — used purely for manual break/fix testing. A
+    Deployment rollout was just detected. Run this as a THREADED Slack
+    conversation in #home-cluster using the slack MCP's
+    conversations_add_message tool — do not skip any of the Slack posts,
+    and use the SAME thread_ts (from your first post) for every reply.
 
-    Step 1 - Investigate: check whether it is actually healthy and serving
+    Step 1 - Post an initial message to #home-cluster (no thread_ts, this
+    starts the thread): something like "🔍 Detected a rollout of
+    demo/nginx-test - investigating whether it's healthy." Remember the
+    ts this call returns - it's the thread_ts for every later reply.
+
+    Step 2 - Investigate: check whether it is actually healthy and serving
     traffic, not just whether the pod is Running: check pod readiness/probe
     status, compare the declared containerPort/port name against what the
     container actually listens on, and check whether the Service has a
     healthy endpoint.
 
-    Step 2 - If unhealthy, fix it via a GitHub pull request (do NOT attempt
+    Step 3 - Reply in the SAME thread (thread_ts from step 1) with your
+    findings: healthy or not, and if not, the root cause and evidence.
+
+    Step 4 - If unhealthy, fix it via a GitHub pull request (do NOT attempt
     a live kubectl mutation - this cluster is GitOps-managed by Flux and
     manual kubectl changes get reverted; the correct fix lives in git):
       - Repo: Matcham89/kagent-agentgateway-k3s, base branch: main
@@ -84,12 +103,21 @@ spec:
         evidence for it, and the exact diff
       - Do not merge the PR yourself - a human must review and merge it
 
-    Step 3 - In your final answer (which is posted to Slack), state the
-    root cause and include the PR URL prominently so it's the approval
-    request.
-  timeout: 180
-  mode: alert
-  destinations:
-    - type: slack
-      config:
-        channel: "#home-cluster"
+    Step 5 - Reply in the SAME thread (thread_ts from step 1) one more
+    time with the PR URL, framed as a request for approval (e.g. "Fix
+    ready for review: <PR URL> - please merge to apply.").
+
+    If it turns out to be healthy (no rollout problem), just reply in the
+    thread saying so and stop - skip steps 4 and 5.
+  # Max allowed value (300s / 5 minutes) — GitHub operations (branch,
+  # commit, PR) add real network round-trips on top of the normal LLM tool
+  # loop, plus now 2-3 extra Slack MCP calls. Confirmed live in an earlier
+  # (non-threaded) version of this query that a run legitimately took
+  # ~334s, exceeding the previous 180s and racing the operator's own
+  # holmesApiTimeout (see holmes/helmrelease.yaml comment) — this and that
+  # were both bumped together.
+  timeout: 300
+  # monitor, not alert: Slack posting is done entirely by the query via the
+  # slack MCP tools above, not the built-in one-shot alert destination
+  # (using both would double-post).
+  mode: monitor

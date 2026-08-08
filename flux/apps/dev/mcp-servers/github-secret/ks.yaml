@@ -3,29 +3,21 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app holmesgpt-holmes
+  name: &app mcp-servers-github-secret
 spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
   dependsOn:
-    - name: holmesgpt-model-secret
-    - name: holmesgpt-slack-secret
-    - name: mcp-servers-slack-mcp
-      namespace: mcp-servers
-    - name: mcp-servers-github-mcp
-      namespace: mcp-servers
-    - name: kube-prometheus-stack
-      namespace: monitoring
-    - name: grafana
-      namespace: monitoring
+    - name: 1password-operator
+      namespace: 1password
   interval: 1h
-  path: ./flux/apps/base/holmesgpt/holmes
+  path: ./flux/apps/base/mcp-servers/github-secret
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  targetNamespace: holmesgpt
-  timeout: 10m
+  targetNamespace: mcp-servers
+  timeout: 5m
   prune: true
   wait: true

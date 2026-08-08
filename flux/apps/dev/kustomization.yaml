@@ -13,3 +13,4 @@ resources:
   - ./holmesgpt
   - ./agentgateway
   - ./demo
+  - ./mcp-servers

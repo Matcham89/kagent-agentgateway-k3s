@@ -1,0 +1,126 @@
+---
+# Self-hosted Slack MCP server (https://github.com/korotovsky/slack-mcp-server)
+# giving any connected client its own Slack tools —
+# conversations_add_message (with thread_ts support), channels_list, etc.
+#
+# Lives in the shared `mcp-servers` namespace (not `holmesgpt`) so it isn't
+# tied to any one consumer — currently used by HolmesGPT
+# (holmesgpt/holmes/helmrelease.yaml mcp_servers.slack), but kagent or
+# anything else could connect too; see the NetworkPolicy below.
+#
+# Reuses the SAME 1Password vault item as the Holmes built-in alert
+# destination's bot token (./slack-secret/onepassworditem.yaml) — one
+# Slack bot token, multiple consumers, each with their own copy of the
+# Secret in their own namespace (Secrets are namespace-scoped).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: slack-mcp-server
+  labels:
+    app: slack-mcp-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: slack-mcp-server
+  template:
+    metadata:
+      labels:
+        app: slack-mcp-server
+    spec:
+      containers:
+        - name: slack-mcp-server
+          image: ghcr.io/korotovsky/slack-mcp-server:v1.3.0
+          args:
+            - "--transport"
+            - "sse"
+          env:
+            - name: SLACK_MCP_HOST
+              value: "0.0.0.0"
+            - name: SLACK_MCP_PORT
+              value: "8000"
+            - name: SLACK_MCP_XOXB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: slack-mcp-server
+                  key: HOLMESGPT_SLACK_BOT_TOKEN
+            # Enables conversations_add_message (posting/threading), which
+            # is disabled by default for safety. Unrestricted (all
+            # channels) because we don't have #home-cluster's raw channel
+            # ID handy — tighten this to that channel ID once known, per
+            # https://github.com/korotovsky/slack-mcp-server#environment-variables-quick-reference
+            - name: SLACK_MCP_ADD_MESSAGE_TOOL
+              value: "true"
+          ports:
+            - containerPort: 8000
+              name: http
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: false # server writes its users/channels cache to disk
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          readinessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: slack-mcp-server
+  labels:
+    app: slack-mcp-server
+spec:
+  selector:
+    app: slack-mcp-server
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: http
+---
+# Shareable by design: any pod that opts in with `mcp-client: "true"` (in
+# ANY namespace) can reach this server, not just Holmes. Holmes itself is
+# explicitly allowed via app=holmes in the holmesgpt namespace (its chart
+# has no podLabels knob to add a generic opt-in label itself).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: slack-mcp-server
+spec:
+  podSelector:
+    matchLabels:
+      app: slack-mcp-server
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: holmesgpt
+          podSelector:
+            matchLabels:
+              app: holmes
+        - namespaceSelector: {} # any namespace
+          podSelector:
+            matchLabels:
+              mcp-client: "true"
+      ports:
+        - protocol: TCP
+          port: 8000

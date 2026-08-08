@@ -1,0 +1,109 @@
+---
+# Self-hosted GitHub MCP server, deployed manually (not via HolmesGPT's
+# `mcpAddons.github`) specifically so it isn't tied to the holmesgpt Helm
+# release/namespace — lives in the shared `mcp-servers` namespace like
+# slack-mcp, so kagent or anything else could connect too (see the
+# NetworkPolicy below). Mirrors the exact "Holmes CLI / manual deployment"
+# pattern from
+# https://holmesgpt.dev/latest/data-sources/builtin-toolsets/github-mcp/#using-a-personal-access-token
+# (image + wiring copied from there), just adapted to this repo's security
+# conventions (non-root, dropped caps, NetworkPolicy).
+#
+# Reuses the SAME 1Password vault item as before
+# (./github-secret/onepassworditem.yaml).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-mcp-server
+  labels:
+    app: github-mcp-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: github-mcp-server
+  template:
+    metadata:
+      labels:
+        app: github-mcp-server
+    spec:
+      containers:
+        - name: github-mcp
+          image: me-west1-docker.pkg.dev/robusta-development/development/github-mcp:1.0.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: GITHUB_PERSONAL_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: github-mcp-server
+                  key: HOLMESGPT_GITHUB_PAT
+          ports:
+            - containerPort: 8000
+              name: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          readinessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: github-mcp-server
+  labels:
+    app: github-mcp-server
+spec:
+  selector:
+    app: github-mcp-server
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: http
+---
+# Shareable by design — same pattern as ../slack-mcp/deployment.yaml.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: github-mcp-server
+spec:
+  podSelector:
+    matchLabels:
+      app: github-mcp-server
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: holmesgpt
+          podSelector:
+            matchLabels:
+              app: holmes
+        - namespaceSelector: {} # any namespace
+          podSelector:
+            matchLabels:
+              mcp-client: "true"
+      ports:
+        - protocol: TCP
+          port: 8000
