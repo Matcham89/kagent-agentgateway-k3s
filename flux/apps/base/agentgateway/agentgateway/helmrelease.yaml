@@ -69,7 +69,7 @@ spec:
         targets: []
       llm:
         models:
-          - name: "*"
+          - name: "claude-sonnet-5"
             provider: anthropic
             params:
               apiKey: "$ANTHROPIC_API_KEY"

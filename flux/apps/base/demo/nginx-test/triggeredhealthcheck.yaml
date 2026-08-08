@@ -5,11 +5,23 @@
 # pod spec, including a manual containerPort edit intended to break it.
 # https://holmesgpt.dev/latest/operator/triggered-health-checks/
 #
-# IMPORTANT: this resource MUST live in the same namespace as the Deployment
-# it watches ("the operator watches Deployments in namespaces where
-# TriggeredHealthCheck resources exist" — confirmed live: an earlier attempt
-# with this resource in the holmesgpt namespace watching a Deployment in
-# demo never fired, moving it here to the demo namespace fixed it).
+# IMPORTANT #1: this resource MUST live in the same namespace as the
+# Deployment it watches ("the operator watches Deployments in namespaces
+# where TriggeredHealthCheck resources exist" — confirmed live: an earlier
+# attempt with this resource in the holmesgpt namespace watching a
+# Deployment in demo never fired, moving it here to the demo namespace
+# fixed it).
+#
+# IMPORTANT #2: the selector below matches on `app`, NOT
+# `app.kubernetes.io/name` — every ks.yaml in this repo injects
+# `app.kubernetes.io/name: <kustomization-name>` onto every resource's own
+# top-level metadata via commonMetadata, which silently overwrites this
+# Deployment's `app.kubernetes.io/name` label to "demo-nginx-test" (it does
+# NOT touch spec.template.metadata.labels, so the Service is unaffected —
+# only the operator's rollout-matching, which reads the Deployment's own
+# label, breaks). See deployment.yaml for the full explanation. Confirmed
+# live: matching on app.kubernetes.io/name silently never fired (no error,
+# no log — just never matched); switching to `app` fixed it immediately.
 #
 # Manual test flow:
 #   kubectl edit deployment nginx-test -n demo
@@ -32,7 +44,7 @@ spec:
   deploymentRollout:
     selector:
       matchLabels:
-        app.kubernetes.io/name: nginx-test
+        app: nginx-test
   # Short wait since this is an interactive manual test, not a real app
   # with a slow rollout — long enough for the probe's failureThreshold
   # (2 x 5s) to actually trip before Holmes looks.

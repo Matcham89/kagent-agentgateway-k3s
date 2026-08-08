@@ -25,14 +25,29 @@
 # state.
 #
 # This also counts as a Deployment rollout (pod template change), so it
-# fires ../../holmesgpt/health-checks/triggeredhealthcheck-nginx-test.yaml
-# automatically ~30s later.
+# fires ./triggeredhealthcheck.yaml automatically ~30s later.
+#
+# IMPORTANT — why this Deployment carries an extra `app: nginx-test` label:
+# every ks.yaml in this repo sets `commonMetadata.labels:
+# {app.kubernetes.io/name: <kustomization-name>}` (see
+# flux/apps/dev/demo/nginx-test/ks.yaml), which Kustomize applies to EVERY
+# resource's own top-level metadata — including this Deployment's, silently
+# overwriting metadata.labels["app.kubernetes.io/name"] to "demo-nginx-test".
+# It does NOT touch spec.template.metadata.labels (the pod template), which
+# is why the Service (which selects pods, not the Deployment) is unaffected.
+# TriggeredHealthCheck's selector matches against the DEPLOYMENT'S OWN
+# label, not the pod template's — so if it selected on
+# app.kubernetes.io/name it would silently never match (confirmed live: it
+# didn't, with no error/log anywhere — purely a silent selector mismatch).
+# The `app: nginx-test` label uses a different key that commonMetadata
+# never touches, so triggeredhealthcheck.yaml selects on `app` instead.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx-test
   labels:
     app.kubernetes.io/name: nginx-test
+    app: nginx-test
 spec:
   replicas: 1
   selector:
