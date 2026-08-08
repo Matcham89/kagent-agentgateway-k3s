@@ -1,0 +1,11 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: agentgateway-system
+components:
+  # agentgateway runs as a standalone service with restricted PSS.
+  - ../../../infra/namespace
+
+resources:
+  - ./agentgateway/ks.yaml
