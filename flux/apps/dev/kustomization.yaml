@@ -14,3 +14,4 @@ resources:
   - ./agentgateway
   - ./demo
   - ./mcp-servers
+  - ./qdrant
