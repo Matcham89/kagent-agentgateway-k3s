@@ -1,14 +1,19 @@
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/kagent-dev/kagent/main/config/crd/bases/kagent.dev_agentharnesses.yaml
 # Autonomous research/scouting agent: browses the web for content ideas and
-# is expected to write findings into Qdrant via the qdrant-mcp RemoteMCPServer
-# (../qdrant-mcp/remotemcpserver.yaml). Unlike the declarative Agent CRDs
-# (e.g. k8s-agent), an AgentHarness provisions a full OpenClaw sandbox on
-# Agent Substrate rather than a fixed tool list — MCP servers are configured
-# inside the sandbox itself (~/.openclaw/openclaw.json), not through this
-# spec, so qdrant-mcp has to be registered from within a chat session once
-# the harness is Ready (see kagent docs: no CRD field for pre-seeding
-# mcpServers as of kagent 0.10.0-rc2).
+# writes findings into Qdrant via the qdrant-mcp RemoteMCPServer
+# (../qdrant-mcp/remotemcpserver.yaml).
+#
+# backend: hermes, not openclaw — OpenClaw's ACP bridge explicitly rejects
+# per-session `mcpServers` in `session/new`/`session/load` ("MCP must be
+# configured on the gateway/agent side"), confirmed live and documented in
+# kagent's own design/EP-XXXX-acp-integration.md. Hermes's ACP server runs
+# in-process and does accept `mcpServers` there
+# (https://hermes-agent.nousresearch.com/docs/user-guide/features/acp), so
+# qdrant-mcp can be passed straight into session/new instead of needing to
+# be baked into the actor's golden snapshot. Hermes's built-in toolset also
+# includes browser_navigate/browser_click, a better native fit for
+# "scout the web" than OpenClaw's shell-only sandbox tools.
 #
 # No chat channel (Slack/Telegram) is configured — interact with it via
 # kagent's own chat UI/CLI (ACP session), not a messaging integration.
@@ -18,7 +23,7 @@ metadata:
   name: content-scout
 spec:
   description: Researches and scouts content ideas, storing findings in Qdrant for a downstream drafting step
-  backend: openclaw
+  backend: hermes
   modelConfigRef: default-model-config
   substrate:
     workerPoolRef:
