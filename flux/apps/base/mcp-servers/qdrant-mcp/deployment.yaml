@@ -137,6 +137,14 @@ spec:
           podSelector:
             matchLabels:
               mcp-client: "true"
+        # Traefik (kube-system) forwards external MCP clients (Hermes on the
+        # intel box, Claude Code on a laptop) via the IngressRoute above.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
       ports:
         - protocol: TCP
           port: 8000
