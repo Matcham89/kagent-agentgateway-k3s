@@ -38,11 +38,16 @@ spec:
           args:
             - |
               set -e
+              mkdir -p "$TMPDIR"
               pip install --no-cache-dir --user mcp-server-qdrant==0.8.1
               exec "$HOME/.local/bin/mcp-server-qdrant" --transport streamable-http
           env:
             - name: HOME
               value: /home/mcp
+            # pip's build tracker needs a writable temp dir; with
+            # readOnlyRootFilesystem, /tmp isn't writable by default.
+            - name: TMPDIR
+              value: /home/mcp/tmp
             - name: QDRANT_URL
               value: "http://qdrant.qdrant.svc.cluster.local:6333"
             - name: COLLECTION_NAME
