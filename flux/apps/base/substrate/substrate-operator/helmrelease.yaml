@@ -34,12 +34,8 @@ spec:
     auth:
       jwt:
         # k3s mints SA tokens with the API-server endpoint as the OIDC issuer.
-        # Get the real issuer with:
-        #   kubectl get --raw /.well-known/openid-configuration | jq .issuer
-        # For a default k3s install on a single node this is typically the
-        # machine's IP or hostname. Update this before deploying.
-        # TODO: set to your k3s node's actual API server address
-        issuer: https://127.0.0.1:6443
+        # Confirmed via: kubectl get --raw /.well-known/openid-configuration | jq .issuer
+        issuer: https://kubernetes.default.svc.cluster.local
   # Announce stable per-pod DNS names on the cluster bus instead of pod IPs.
   # Without this, a full cluster restart gives every pod a new IP while
   # nodes.conf still holds the old ones -> cluster_state:fail.
