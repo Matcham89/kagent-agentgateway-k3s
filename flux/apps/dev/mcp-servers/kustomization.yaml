@@ -1,8 +1,9 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
-# Shared, tool-agnostic MCP servers — currently consumed by HolmesGPT, but
-# not tied to it. Anything in the cluster can connect by labelling its pods
-# `mcp-client: "true"` (see NetworkPolicy in each app's deployment.yaml).
+# Shared, tool-agnostic MCP servers — consumed by HolmesGPT (slack-mcp,
+# github-mcp) and kagent (qdrant-mcp), but not tied to either. Anything in
+# the cluster can connect by labelling its pods `mcp-client: "true"` (see
+# NetworkPolicy in each app's deployment.yaml).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: mcp-servers
@@ -14,3 +15,4 @@ resources:
   - ./github-secret/ks.yaml
   - ./slack-mcp/ks.yaml
   - ./github-mcp/ks.yaml
+  - ./qdrant-mcp/ks.yaml

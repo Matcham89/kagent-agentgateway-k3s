@@ -1,0 +1,18 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kagent-dev/kagent/main/config/crd/bases/kagent.dev_remotemcpservers.yaml
+# Registers the shared qdrant-mcp server
+# (../../mcp-servers/qdrant-mcp/deployment.yaml) as a tool source for kagent
+# agents — same shape as the kagent chart's own bundled RemoteMCPServers
+# (e.g. kagent-grafana-mcp), just authored directly since this one isn't
+# part of the kagent chart.
+apiVersion: kagent.dev/v1alpha2
+kind: RemoteMCPServer
+metadata:
+  name: qdrant-mcp
+spec:
+  description: Qdrant semantic memory MCP server (qdrant-store / qdrant-find)
+  protocol: STREAMABLE_HTTP
+  url: http://qdrant-mcp-server.mcp-servers.svc.cluster.local:8000/mcp
+  timeout: 30s
+  sseReadTimeout: 5m0s
+  terminateOnClose: true
