@@ -128,6 +128,11 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kagent
+        # AgentHarness sandbox actors (e.g. content-scout) run as substrate
+        # worker pool pods in ate-system, not in kagent itself.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ate-system
         - namespaceSelector: {} # any namespace
           podSelector:
             matchLabels:

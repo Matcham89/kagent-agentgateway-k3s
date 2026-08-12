@@ -1,0 +1,25 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kagent-dev/kagent/main/config/crd/bases/kagent.dev_agentharnesses.yaml
+# Autonomous research/scouting agent: browses the web for content ideas and
+# is expected to write findings into Qdrant via the qdrant-mcp RemoteMCPServer
+# (../qdrant-mcp/remotemcpserver.yaml). Unlike the declarative Agent CRDs
+# (e.g. k8s-agent), an AgentHarness provisions a full OpenClaw sandbox on
+# Agent Substrate rather than a fixed tool list — MCP servers are configured
+# inside the sandbox itself (~/.openclaw/openclaw.json), not through this
+# spec, so qdrant-mcp has to be registered from within a chat session once
+# the harness is Ready (see kagent docs: no CRD field for pre-seeding
+# mcpServers as of kagent 0.10.0-rc2).
+#
+# No chat channel (Slack/Telegram) is configured — interact with it via
+# kagent's own chat UI/CLI (ACP session), not a messaging integration.
+apiVersion: kagent.dev/v1alpha2
+kind: AgentHarness
+metadata:
+  name: content-scout
+spec:
+  description: Researches and scouts content ideas, storing findings in Qdrant for a downstream drafting step
+  backend: openclaw
+  modelConfigRef: default-model-config
+  substrate:
+    workerPoolRef:
+      name: kagent-default
