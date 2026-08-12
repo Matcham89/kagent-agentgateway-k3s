@@ -107,9 +107,12 @@ spec:
       protocol: TCP
       name: http
 ---
-# Shareable by design, same pattern as ../slack-mcp/deployment.yaml —
-# kagent agent pods (labelled app=kagent by the kagent chart) are allowed
-# explicitly; anything else opts in with `mcp-client: "true"`.
+# Shareable by design, same pattern as ../slack-mcp/deployment.yaml — the
+# whole `kagent` namespace is allowed (not a single pod label) because tool
+# discovery/calls come from kagent-controller (app.kubernetes.io/name=kagent,
+# app.kubernetes.io/component=controller) as well as individual agent pods
+# (app=kagent), and that split isn't worth tracking label-by-label. Anything
+# else opts in with `mcp-client: "true"`.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -125,9 +128,6 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kagent
-          podSelector:
-            matchLabels:
-              app: kagent
         - namespaceSelector: {} # any namespace
           podSelector:
             matchLabels:
