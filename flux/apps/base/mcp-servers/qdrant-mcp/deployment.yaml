@@ -40,7 +40,7 @@ spec:
               set -e
               mkdir -p "$TMPDIR"
               pip install --no-cache-dir --user mcp-server-qdrant==0.8.1
-              exec "$HOME/.local/bin/mcp-server-qdrant" --transport streamable-http
+              exec python /opt/qdrant-mcp-entrypoint.py
           env:
             - name: HOME
               value: /home/mcp
@@ -56,6 +56,14 @@ spec:
               value: "0.0.0.0"
             - name: FASTMCP_SERVER_PORT
               value: "8000"
+            # Static Bearer token for headless MCP clients (Hermes researcher
+            # gateway). Interactive clients (Claude Desktop) use the OAuth
+            # authorization-code flow against the server instead.
+            - name: QDRANT_MCP_STATIC_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: qdrant-mcp-oauth-token
+                  key: token
           ports:
             - containerPort: 8000
               name: http
@@ -77,6 +85,10 @@ spec:
           volumeMounts:
             - name: home
               mountPath: /home/mcp
+            - name: entrypoint
+              mountPath: /opt/qdrant-mcp-entrypoint.py
+              subPath: entrypoint.py
+              readOnly: true
           readinessProbe:
             tcpSocket:
               port: 8000
@@ -91,6 +103,9 @@ spec:
       volumes:
         - name: home
           emptyDir: {}
+        - name: entrypoint
+          configMap:
+            name: qdrant-mcp-oauth-entrypoint
 ---
 apiVersion: v1
 kind: Service

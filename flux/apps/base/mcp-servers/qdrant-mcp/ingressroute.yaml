@@ -1,15 +1,21 @@
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/traefik/traefik/v3.5/pkg/provider/kubernetes/crd/traefik.io_ingressroutes.yaml
 # Exposes the shared qdrant-mcp server outside the cluster so external
-# consumers (Hermes on the intel box, Claude Code on a laptop) can reach it
+# consumers (Hermes on the intel box, Claude Desktop on a laptop) can reach it
 # via Traefik instead of requiring a kubectl port-forward.
 #
-# MCP streamable-HTTP terminates TLS at Traefik: web (HTTP) kept for internal
-# consumers, websecure (HTTPS) for Claude Desktop, which only accepts https://
-# MCP URLs. Both entrypoints are behind BasicAuth (qdrant-mcp-basicauth
-# middleware + secret) — external consumers (Hermes researcher, Claude
-# Desktop/Code) authenticate with the same credentials. TLS cert comes from
-# the qdrant-mcp-tls secret (homelab local CA — created imperatively, not in git).
+# Auth is handled by the MCP server itself (OAuth), not by Traefik:
+#   - /mcp requires a Bearer token — either a static token from the
+#     qdrant-mcp-oauth-token secret (headless clients like the Hermes
+#     researcher gateway) or an access token from the OAuth flow.
+#   - The OAuth endpoints (/.well-known/oauth-authorization-server, /authorize,
+#     /token, /register, /revoke) are deliberately NOT behind basicAuth — MCP
+#     OAuth clients (Claude Desktop) must reach them to complete the dance.
+# The old qdrant-mcp-basicauth middleware is gone (kept the secret file for
+# reference only; the middleware.yaml is no longer applied).
+#
+# TLS cert comes from the qdrant-mcp-tls secret (homelab local CA — created
+# imperatively, not in git).
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
@@ -23,9 +29,6 @@ spec:
   routes:
     - kind: Rule
       match: Host(`qdrant-mcp.192.168.1.237.nip.io`)
-      middlewares:
-        - name: qdrant-mcp-basicauth
-          namespace: mcp-servers
       services:
         - name: qdrant-mcp-server
           port: 8000
