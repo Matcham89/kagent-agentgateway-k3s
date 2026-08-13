@@ -51,25 +51,16 @@ spec:
     # below via the "$ANTHROPIC_API_KEY" env-var interpolation syntax.
     # https://agentgateway.dev/docs/standalone/main/llm/providers/anthropic/
     #
-    # QDRANT_MCP_STATIC_TOKEN is the qdrant backend's own Bearer token (same
-    # value as secret qdrant-mcp-oauth-token in mcp-servers, duplicated into
-    # agentgateway-system because env secretKeyRef can't cross namespaces).
-    # AG attaches it to backend requests via policies.backendAuth.key below.
+    # SSL_CERT_FILE trusts the homelab CA (Keycloak's cert is self-signed via
+    # the local CA) so AG's JWKS fetch and OIDC discovery succeed. The bundle
+    # = system CAs + homelab CA so public APIs (Anthropic) still verify.
+    # rustls/reqwest honor SSL_CERT_FILE.
     extraEnv:
       - name: ANTHROPIC_API_KEY
         valueFrom:
           secretKeyRef:
             name: agentgateway-anthropic
             key: HOLMESGPT_ANTHROPIC_API_KEY
-      - name: QDRANT_MCP_STATIC_TOKEN
-        valueFrom:
-          secretKeyRef:
-            name: agentgateway-qdrant-token
-            key: token
-      # Trust the homelab CA (Keycloak's cert is self-signed via the local
-      # CA). AG's JWKS fetch and OIDC discovery reject it otherwise. The
-      # bundle = system CAs + homelab CA so public APIs (Anthropic) still
-      # verify. rustls/reqwest honor SSL_CERT_FILE.
       - name: SSL_CERT_FILE
         value: /certs/ca-bundle.crt
 
@@ -121,15 +112,9 @@ spec:
           - name: qdrant
             mcp:
               host: http://qdrant-mcp-server.mcp-servers.svc.cluster.local:8000/mcp/
-            # Backend transport policy: attach the qdrant backend's static
-            # Bearer token to proxied requests (the backend enforces it
-            # server-side). Secret value is the full "Bearer <token>" string
-            # (whole-string env substitution — AG doesn't interpolate inside
-            # mixed strings).
-            policies:
-              backendAuth:
-                key:
-                  value: "$QDRANT_MCP_STATIC_TOKEN"
+            # No backendAuth: the qdrant backend is auth-free internally
+            # (NetworkPolicy restricts access to agentgateway-system, kagent,
+            # ate-system, traefik). AG is the single auth boundary.
       llm:
         models:
           - name: "claude-sonnet-5"
