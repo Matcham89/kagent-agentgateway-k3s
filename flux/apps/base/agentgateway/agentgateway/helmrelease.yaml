@@ -123,7 +123,7 @@ spec:
         targets:
           - name: qdrant
             mcp:
-              host: http://qdrant-mcp-server.mcp-servers.svc.cluster.local:8000/mcp
+              host: http://qdrant-mcp-server.mcp-servers.svc.cluster.local:8000/mcp/
       llm:
         models:
           - name: "claude-sonnet-5"
