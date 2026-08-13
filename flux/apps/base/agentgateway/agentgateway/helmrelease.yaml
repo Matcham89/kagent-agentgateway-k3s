@@ -101,7 +101,12 @@ spec:
             provider:
               keycloak: {}
             resourceMetadata:
-              resource: agentgateway
+              # Per Anthropic's connector docs, this must match the MCP
+              # server URL exactly as entered in Claude (including path),
+              # not an internal label — otherwise Claude can't validate the
+              # metadata and silently falls back to guessing /authorize and
+              # /token at the connector's origin.
+              resource: https://qdrant-mcp.192.168.1.237.nip.io/mcp/http
               # Without this, AG defaults authorization_servers to its own
               # resource URL in the RFC9728 metadata, so OAuth clients (e.g.
               # Claude) try to hit AG's own host at /authorize instead of
