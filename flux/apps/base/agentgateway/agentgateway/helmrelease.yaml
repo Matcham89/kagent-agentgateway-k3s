@@ -117,10 +117,12 @@ spec:
                 - body
                 - query
           # Attach the qdrant backend's static Bearer token to proxied
-          # requests (the backend still enforces it server-side).
+          # requests (the backend still enforces it server-side). The secret
+          # value is "Bearer <token>" (whole-string env substitution — AG
+          # doesn't interpolate inside mixed strings).
           backendAuth:
             key:
-              value: "Bearer $QDRANT_MCP_STATIC_TOKEN"
+              value: "$QDRANT_MCP_STATIC_TOKEN"
         targets:
           - name: qdrant
             mcp:
