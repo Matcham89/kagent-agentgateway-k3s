@@ -21,6 +21,6 @@ spec:
       services:
         - name: agentgateway-standalone
           namespace: agentgateway-system
-          port: 4000
+          port: 80
   tls:
     secretName: qdrant-mcp-tls
