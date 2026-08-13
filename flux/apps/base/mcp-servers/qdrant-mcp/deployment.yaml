@@ -40,7 +40,7 @@ spec:
               set -e
               mkdir -p "$TMPDIR"
               pip install --no-cache-dir --user mcp-server-qdrant==0.8.1
-              exec python -m mcp_server_qdrant.main --transport streamable-http
+              exec python /opt/qdrant-mcp-entrypoint.py
           env:
             - name: HOME
               value: /home/mcp
