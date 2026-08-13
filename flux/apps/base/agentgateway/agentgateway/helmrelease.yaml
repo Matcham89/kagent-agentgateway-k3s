@@ -66,6 +66,22 @@ spec:
           secretKeyRef:
             name: agentgateway-qdrant-token
             key: token
+      # Trust the homelab CA (Keycloak's cert is self-signed via the local
+      # CA). AG's JWKS fetch and OIDC discovery reject it otherwise. The
+      # bundle = system CAs + homelab CA so public APIs (Anthropic) still
+      # verify. rustls/reqwest honor SSL_CERT_FILE.
+      - name: SSL_CERT_FILE
+        value: /certs/ca-bundle.crt
+
+    extraVolumeMounts:
+      - name: homelab-ca
+        mountPath: /certs
+        readOnly: true
+
+    extraVolumes:
+      - name: homelab-ca
+        secret:
+          secretName: homelab-ca-bundle
 
     # Setting config replaces the chart's default config.yaml entirely, so
     # gateways.default.port must stay 4000 to match gateway.service above
