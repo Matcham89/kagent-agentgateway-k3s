@@ -126,7 +126,7 @@ spec:
                 "publicClient": true,
                 "standardFlowEnabled": true,
                 "directAccessGrantsEnabled": true,
-                "redirectUris": ["http://127.0.0.1/*"],
+                "redirectUris": ["http://127.0.0.1/*", "https://claude.ai/*"],
                 "webOrigins": ["+"],
                 "protocolMappers": [
                   {
