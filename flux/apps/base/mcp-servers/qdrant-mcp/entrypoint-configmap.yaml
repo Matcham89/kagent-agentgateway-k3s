@@ -58,6 +58,8 @@ data:
 
     from fastmcp.server.auth.providers.in_memory import InMemoryOAuthProvider
     from fastmcp.server.auth.auth import ClientRegistrationOptions
+    from mcp.shared.auth import OAuthClientInformationFull
+    from pydantic import AnyUrl
     from mcp_server_qdrant.mcp_server import QdrantMCPServer
     from mcp_server_qdrant.settings import (
         EmbeddingProviderSettings,
@@ -71,6 +73,11 @@ data:
     )
     STATIC_TOKEN = os.environ.get("QDRANT_MCP_STATIC_TOKEN", "")
 
+    # Claude Desktop does NOT do dynamic client registration — it uses a fixed
+    # client_id (here "qdrant", matching the MCP server name) and goes straight to
+    # /authorize. The provider must accept it.
+    CLAUDE_CALLBACK_URL = "https://claude.ai/api/mcp/auth_callback"
+
 
     class QdrantOAuthProvider(InMemoryOAuthProvider):
         """InMemoryOAuthProvider that also accepts a long-lived static token.
@@ -80,6 +87,22 @@ data:
         else (dynamic client registration, PKCE code flow, refresh tokens) is
         inherited from the in-memory provider, so Claude Desktop works normally.
         """
+
+        async def get_client(self, client_id: str) -> OAuthClientInformationFull | None:
+            client = await super().get_client(client_id)
+            if client is not None:
+                return client
+            # Auto-register unknown client IDs (homelab single-tenant): Claude
+            # Desktop uses a fixed client_id without calling /register first.
+            client = OAuthClientInformationFull(
+                client_id=client_id,
+                redirect_uris=[AnyUrl(CLAUDE_CALLBACK_URL)],
+                token_endpoint_auth_method="none",
+                grant_types=["authorization_code", "refresh_token"],
+                response_types=["code"],
+            )
+            await self.register_client(client)
+            return client
 
         async def load_access_token(self, token: str) -> AccessToken | None:
             if STATIC_TOKEN and token == STATIC_TOKEN:
