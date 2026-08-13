@@ -99,6 +99,7 @@ spec:
         # resource server per the MCP Authorization spec, proxying the
         # authorization-server metadata and validating tokens via JWKS.
         policies:
+          # (AG's keycloak provider adapts the JWKS URL automatically).
           mcpAuthentication:
             mode: strict
             issuer: https://keycloak.192.168.1.237.nip.io/realms/mcp
@@ -116,17 +117,19 @@ spec:
                 - header
                 - body
                 - query
-          # Attach the qdrant backend's static Bearer token to proxied
-          # requests (the backend still enforces it server-side). The secret
-          # value is "Bearer <token>" (whole-string env substitution — AG
-          # doesn't interpolate inside mixed strings).
-          backendAuth:
-            key:
-              value: "$QDRANT_MCP_STATIC_TOKEN"
         targets:
           - name: qdrant
             mcp:
               host: http://qdrant-mcp-server.mcp-servers.svc.cluster.local:8000/mcp/
+            # Backend transport policy: attach the qdrant backend's static
+            # Bearer token to proxied requests (the backend enforces it
+            # server-side). Secret value is the full "Bearer <token>" string
+            # (whole-string env substitution — AG doesn't interpolate inside
+            # mixed strings).
+            policies:
+              backendAuth:
+                key:
+                  value: "$QDRANT_MCP_STATIC_TOKEN"
       llm:
         models:
           - name: "claude-sonnet-5"
