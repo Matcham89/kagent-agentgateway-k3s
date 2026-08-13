@@ -16,3 +16,12 @@ spec:
   timeout: 30s
   sseReadTimeout: 5m0s
   terminateOnClose: true
+  # Server requires a Bearer token on /mcp since the Aug 2026 OAuth migration
+  # (static token in the qdrant-mcp-oauth-token secret, same one the Hermes
+  # researcher gateway uses). Without this, kagent agents get 401.
+  headersFrom:
+    - name: Authorization
+      valueFrom:
+        type: Secret
+        name: qdrant-mcp-oauth-token
+        key: authorization
