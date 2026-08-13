@@ -40,6 +40,7 @@ spec:
       retries: 3
   values:
     replicaCount: 1
+    # annotations marker for hook re-runs
     auth:
       adminUser: admin
       # Admin password comes from the keycloak-admin secret (imperative,
