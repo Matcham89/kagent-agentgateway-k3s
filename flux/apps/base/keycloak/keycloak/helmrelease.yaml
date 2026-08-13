@@ -1,12 +1,17 @@
 ---
-# yaml-language-server: $schema=https://github.com/fluxcd-community/flux2-schemas/raw/main/helmrepository-source-v1.json
+# yaml-language-server: $schema=https://github.com/fluxcd-community/flux2-schemas/raw/main/ocirepository-source-v1.json
 apiVersion: source.toolkit.fluxcd.io/v1
-kind: HelmRepository
+kind: OCIRepository
 metadata:
-  name: bitnami
+  name: keycloak
 spec:
   interval: 30m
-  url: https://charts.bitnami.com/bitnami
+  url: oci://registry-1.docker.io/bitnamicharts/keycloak
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+  ref:
+    semver: 25.2.0
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
 apiVersion: helm.toolkit.fluxcd.io/v2
@@ -15,13 +20,9 @@ metadata:
   name: keycloak
 spec:
   interval: 30m
-  chart:
-    spec:
-      chart: keycloak
-      version: "25.2.0"
-      sourceRef:
-        kind: HelmRepository
-        name: bitnami
+  chartRef:
+    kind: OCIRepository
+    name: keycloak
   install:
     strategy:
       name: RetryOnFailure
