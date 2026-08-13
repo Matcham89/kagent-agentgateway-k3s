@@ -57,6 +57,10 @@ spec:
     # the realm config are applied on each Helm upgrade.
     keycloakConfigCli:
       enabled: true
+      image:
+        registry: docker.io
+        repository: bitnamilegacy/keycloak-config-cli
+        tag: 6.4.0-debian-12-r11
       # Env vars for placeholder substitution (${MATCHAM_PASSWORD},
       # ${AGENTGATEWAY_CLIENT_SECRET}) — sourced from the
       # keycloak-realm-secrets secret (imperative, not in git).
@@ -127,6 +131,12 @@ spec:
 
     postgresql:
       enabled: true
+      # Bitnami images moved off docker.io to the bitnamilegacy namespace
+      # (docker.io/bitnami/* tags were purged).
+      image:
+        registry: docker.io
+        repository: bitnamilegacy/postgresql
+        tag: 17.6.0-debian-12-r0
       auth:
         username: bn_keycloak
         database: bitnami_keycloak
@@ -149,3 +159,11 @@ spec:
         memory: 512Mi
       limits:
         memory: 2Gi
+
+    # Bitnami images moved off docker.io to the bitnamilegacy namespace
+    # (docker.io/bitnami/* tags were purged). Pin the legacy registry
+    # explicitly.
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/keycloak
+      tag: 26.3.3-debian-12-r0
