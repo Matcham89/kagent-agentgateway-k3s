@@ -5,3 +5,4 @@ kind: Kustomization
 resources:
   - ./deployment.yaml
   - ./ingressroute.yaml
+  - ./middleware.yaml
