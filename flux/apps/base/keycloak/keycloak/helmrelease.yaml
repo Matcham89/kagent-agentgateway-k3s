@@ -50,6 +50,11 @@ spec:
 
     proxy: edge
     production: false
+    # Emit the external HTTPS URL in the OIDC issuer/discovery (Keycloak
+    # defaults to http://<service> otherwise, breaking JWT issuer checks).
+    hostname: keycloak.192.168.1.237.nip.io
+    hostnameStrict: false
+    proxyHeaders: xforwarded
 
     # Declarative realm bootstrap via keycloak-config-cli — the realm,
     # clients, and users are defined in Git (values below), not hand-clicked
@@ -113,7 +118,18 @@ spec:
                 "redirectUris": ["https://qdrant-mcp.192.168.1.237.nip.io/*"],
                 "webOrigins": ["+"],
                 "defaultClientScopes": ["openid", "profile", "email"],
-                "protocolMappers": []
+                "protocolMappers": [
+                  {
+                    "name": "aud-agentgateway",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-audience-mapper",
+                    "config": {
+                      "included.client.audience": "agentgateway",
+                      "access.token.claim": "true",
+                      "id.token.claim": "true"
+                    }
+                  }
+                ]
               },
               {
                 "clientId": "claude-desktop",
@@ -124,7 +140,19 @@ spec:
                 "directAccessGrantsEnabled": true,
                 "redirectUris": ["http://127.0.0.1/*"],
                 "webOrigins": ["+"],
-                "defaultClientScopes": ["openid", "profile", "email"]
+                "defaultClientScopes": ["openid", "profile", "email"],
+                "protocolMappers": [
+                  {
+                    "name": "aud-agentgateway",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-audience-mapper",
+                    "config": {
+                      "included.client.audience": "agentgateway",
+                      "access.token.claim": "true",
+                      "id.token.claim": "true"
+                    }
+                  }
+                ]
               }
             ]
           }
