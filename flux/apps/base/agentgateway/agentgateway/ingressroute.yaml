@@ -1,0 +1,26 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/traefik/traefik/v3.5/pkg/provider/kubernetes/crd/traefik.io_ingressroutes.yaml
+# External MCP endpoint. Agent Gateway terminates the MCP Authorization
+# spec flow (validates Keycloak JWTs, proxies metadata) and forwards to the
+# qdrant-mcp backend. Uses the same hostname as the old direct route so
+# client configs only change auth (add token), not the URL. TLS cert from
+# the qdrant-mcp-tls secret (homelab local CA, imperative).
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: qdrant-mcp-server
+  labels:
+    app: agentgateway-standalone
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`qdrant-mcp.192.168.1.237.nip.io`)
+      services:
+        - name: agentgateway-standalone
+          namespace: agentgateway-system
+          port: 4000
+  tls:
+    secretName: qdrant-mcp-tls

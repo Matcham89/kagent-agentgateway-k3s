@@ -1,0 +1,150 @@
+---
+# yaml-language-server: $schema=https://github.com/fluxcd-community/flux2-schemas/raw/main/helmrepository-source-v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: bitnami
+spec:
+  interval: 30m
+  url: https://charts.bitnami.com/bitnami
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: keycloak
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: keycloak
+      version: "25.2.0"
+      sourceRef:
+        kind: HelmRepository
+        name: bitnami
+  install:
+    strategy:
+      name: RetryOnFailure
+    createNamespace: true
+    timeout: 10m
+    remediation:
+      retries: 3
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+    cleanupOnFail: true
+    timeout: 10m
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    auth:
+      adminUser: admin
+      # Admin password comes from the keycloak-admin secret (imperative,
+      # not in git — same pattern as qdrant-mcp-tls). Created via:
+      #   kubectl create secret generic keycloak-admin -n keycloak \
+      #     --from-literal=admin-password=<strong-password>
+      existingSecret: keycloak-admin
+      existingSecretPasswordKey: admin-password
+
+    proxy: edge
+    production: false
+
+    # Declarative realm bootstrap via keycloak-config-cli — the realm,
+    # clients, and users are defined in Git (values below), not hand-clicked
+    # in the admin console. Re-runs reconcile, so client secret changes in
+    # the realm config are applied on each Helm upgrade.
+    keycloakConfigCli:
+      enabled: true
+      # Env vars for placeholder substitution (${MATCHAM_PASSWORD},
+      # ${AGENTGATEWAY_CLIENT_SECRET}) — sourced from the
+      # keycloak-realm-secrets secret (imperative, not in git).
+      extraEnvVars:
+        - name: MATCHAM_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: keycloak-realm-secrets
+              key: matcham-password
+        - name: AGENTGATEWAY_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: keycloak-realm-secrets
+              key: agentgateway-client-secret
+      configuration:
+        realm.json: |
+          {
+            "realm": "mcp",
+            "enabled": true,
+            "sslRequired": "none",
+            "registrationAllowed": false,
+            "loginWithEmailAllowed": false,
+            "users": [
+              {
+                "username": "matcham",
+                "enabled": true,
+                "email": "chris@homelab.local",
+                "firstName": "Chris",
+                "lastName": "Matcham",
+                "credentials": [{ "type": "password", "value": "${MATCHAM_PASSWORD}", "temporary": false }],
+                "realmRoles": ["default-roles-mcp", "mcp-user"]
+              }
+            ],
+            "roles": {
+              "realm": [
+                { "name": "mcp-user", "description": "Can read and write MCP tools" },
+                { "name": "mcp-admin", "description": "Full MCP access" }
+              ]
+            },
+            "clients": [
+              {
+                "clientId": "agentgateway",
+                "enabled": true,
+                "protocol": "openid-connect",
+                "publicClient": false,
+                "secret": "${AGENTGATEWAY_CLIENT_SECRET}",
+                "serviceAccountsEnabled": true,
+                "directAccessGrantsEnabled": true,
+                "standardFlowEnabled": true,
+                "redirectUris": ["https://qdrant-mcp.192.168.1.237.nip.io/*"],
+                "webOrigins": ["+"],
+                "defaultClientScopes": ["openid", "profile", "email"],
+                "protocolMappers": []
+              },
+              {
+                "clientId": "claude-desktop",
+                "enabled": true,
+                "protocol": "openid-connect",
+                "publicClient": true,
+                "standardFlowEnabled": true,
+                "directAccessGrantsEnabled": true,
+                "redirectUris": ["http://127.0.0.1/*"],
+                "webOrigins": ["+"],
+                "defaultClientScopes": ["openid", "profile", "email"]
+              }
+            ]
+          }
+
+    postgresql:
+      enabled: true
+      auth:
+        username: bn_keycloak
+        database: bitnami_keycloak
+        existingSecret: keycloak-postgres
+      primary:
+        persistence:
+          enabled: true
+          storageClass: local-path
+          size: 8Gi
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 1Gi
+
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        memory: 2Gi

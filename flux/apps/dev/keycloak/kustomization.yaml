@@ -2,7 +2,10 @@
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: agentgateway-system
+namespace: keycloak
+components:
+  # Keycloak runs with restricted PSS, needs local-path storage.
+  - ../../../infra/namespace
+
 resources:
-  - helmrelease.yaml
-  - ingressroute.yaml
+  - ./ks.yaml

@@ -148,6 +148,11 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: ate-system
+        # Agent Gateway (agentgateway-system) proxies external MCP clients —
+        # it's now the single external front door for this server.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: agentgateway-system
         - namespaceSelector: {} # any namespace
           podSelector:
             matchLabels:

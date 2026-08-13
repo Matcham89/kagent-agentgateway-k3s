@@ -1,0 +1,22 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/traefik/traefik/v3.5/pkg/provider/kubernetes/crd/traefik.io_ingressroutes.yaml
+# Exposes the Keycloak admin console + OIDC endpoints on the LAN. No
+# BasicAuth — Keycloak is the auth provider itself. TLS cert from the
+# keycloak-tls secret (homelab local CA, created imperatively, not in git).
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: keycloak
+  labels:
+    app: keycloak
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`keycloak.192.168.1.237.nip.io`)
+      services:
+        - name: keycloak
+          port: 8080
+  tls:
+    secretName: keycloak-tls

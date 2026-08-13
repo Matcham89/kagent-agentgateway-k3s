@@ -12,6 +12,7 @@ resources:
   - ./kagent
   - ./holmesgpt
   - ./agentgateway
+  - ./keycloak
   - ./demo
   - ./mcp-servers
   - ./qdrant

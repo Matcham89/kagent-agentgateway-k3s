@@ -50,12 +50,22 @@ spec:
     # (see ../model-secret/anthropic.yaml) and referenced by config.llm.models
     # below via the "$ANTHROPIC_API_KEY" env-var interpolation syntax.
     # https://agentgateway.dev/docs/standalone/main/llm/providers/anthropic/
+    #
+    # QDRANT_MCP_STATIC_TOKEN is the qdrant backend's own Bearer token (same
+    # value as secret qdrant-mcp-oauth-token in mcp-servers, duplicated into
+    # agentgateway-system because env secretKeyRef can't cross namespaces).
+    # AG attaches it to backend requests via policies.backendAuth.key below.
     extraEnv:
       - name: ANTHROPIC_API_KEY
         valueFrom:
           secretKeyRef:
             name: agentgateway-anthropic
             key: HOLMESGPT_ANTHROPIC_API_KEY
+      - name: QDRANT_MCP_STATIC_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: agentgateway-qdrant-token
+            key: token
 
     # Setting config replaces the chart's default config.yaml entirely, so
     # gateways.default.port must stay 4000 to match gateway.service above
@@ -66,7 +76,38 @@ spec:
           port: 4000
       ui: {}
       mcp:
-        targets: []
+        # MCP authentication: validate JWTs issued by Keycloak (realm "mcp",
+        # client "agentgateway"). Clients (Claude Desktop, Claude Code, the
+        # Hermes researcher gateway) get tokens via OAuth/OIDC against
+        # https://keycloak.192.168.1.237.nip.io/realms/mcp. AG acts as the
+        # resource server per the MCP Authorization spec, proxying the
+        # authorization-server metadata and validating tokens via JWKS.
+        policies:
+          mcpAuthentication:
+            issuer: https://keycloak.192.168.1.237.nip.io/realms/mcp
+            audiences:
+              - agentgateway
+            jwks:
+              url: https://keycloak.192.168.1.237.nip.io/realms/mcp/protocol/openid-connect/certs
+            provider:
+              keycloak: {}
+            resourceMetadata:
+              resource: agentgateway
+              scopesSupported:
+                - read:all
+              bearerMethodsSupported:
+                - header
+                - body
+                - query
+          # Attach the qdrant backend's static Bearer token to proxied
+          # requests (the backend still enforces it server-side).
+          backendAuth:
+            key:
+              value: "Bearer $QDRANT_MCP_STATIC_TOKEN"
+        targets:
+          - name: qdrant
+            mcp:
+              host: http://qdrant-mcp-server.mcp-servers.svc.cluster.local:8000/mcp
       llm:
         models:
           - name: "claude-sonnet-5"
