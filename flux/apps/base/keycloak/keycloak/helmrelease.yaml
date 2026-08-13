@@ -67,20 +67,9 @@ spec:
         registry: docker.io
         repository: bitnamilegacy/keycloak-config-cli
         tag: 6.4.0-debian-12-r11
-      # Env vars for placeholder substitution (${MATCHAM_PASSWORD},
-      # ${AGENTGATEWAY_CLIENT_SECRET}) — sourced from the
-      # keycloak-realm-secrets secret (imperative, not in git).
-      extraEnvVars:
-        - name: MATCHAM_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: keycloak-realm-secrets
-              key: matcham-password
-        - name: AGENTGATEWAY_CLIENT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: keycloak-realm-secrets
-              key: agentgateway-client-secret
+      # Credentials are set imperatively via the Keycloak admin API, not
+      # through config-cli env substitution (Bitnami's job doesn't pass
+      # extraEnvVars through reliably). No secrets in git.
       configuration:
         realm.json: |
           {
@@ -96,7 +85,6 @@ spec:
                 "email": "chris@homelab.local",
                 "firstName": "Chris",
                 "lastName": "Matcham",
-                "credentials": [{ "type": "password", "value": "${MATCHAM_PASSWORD}", "temporary": false }],
                 "realmRoles": ["default-roles-mcp", "mcp-user"]
               }
             ],
@@ -112,7 +100,6 @@ spec:
                 "enabled": true,
                 "protocol": "openid-connect",
                 "publicClient": false,
-                "secret": "${AGENTGATEWAY_CLIENT_SECRET}",
                 "serviceAccountsEnabled": true,
                 "directAccessGrantsEnabled": true,
                 "standardFlowEnabled": true,
