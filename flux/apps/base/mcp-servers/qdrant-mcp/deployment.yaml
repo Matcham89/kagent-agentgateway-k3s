@@ -77,6 +77,10 @@ spec:
           volumeMounts:
             - name: home
               mountPath: /home/mcp
+            - name: entrypoint
+              mountPath: /opt/qdrant-mcp-entrypoint.py
+              subPath: entrypoint.py
+              readOnly: true
           readinessProbe:
             tcpSocket:
               port: 8000
@@ -91,6 +95,9 @@ spec:
       volumes:
         - name: home
           emptyDir: {}
+        - name: entrypoint
+          configMap:
+            name: qdrant-mcp-entrypoint
 ---
 apiVersion: v1
 kind: Service
