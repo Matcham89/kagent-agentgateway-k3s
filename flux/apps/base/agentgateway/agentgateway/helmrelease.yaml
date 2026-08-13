@@ -102,6 +102,14 @@ spec:
               keycloak: {}
             resourceMetadata:
               resource: agentgateway
+              # Without this, AG defaults authorization_servers to its own
+              # resource URL in the RFC9728 metadata, so OAuth clients (e.g.
+              # Claude) try to hit AG's own host at /authorize instead of
+              # Keycloak's real endpoint — AG has no such route, and the
+              # request falls through to the LLM proxy, returning a
+              # confusing "LLM request body must be valid JSON" error.
+              authorizationServers:
+                - https://keycloak.192.168.1.237.nip.io/realms/mcp
               scopesSupported:
                 - read:all
               bearerMethodsSupported:
