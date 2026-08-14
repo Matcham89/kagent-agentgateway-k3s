@@ -5,6 +5,12 @@
 # qdrant-mcp backend. Uses the same hostname as the old direct route so
 # client configs only change auth (add token), not the URL. TLS cert from
 # the qdrant-mcp-tls secret (homelab local CA, imperative).
+#
+# The /authorize and /token proxy routes for Claude Desktop's manual OAuth
+# flow live in ../../keycloak/ingressroute.yaml instead of here — Traefik's
+# kubernetescrd provider forbids an IngressRoute's services (and
+# middlewares) from referencing another namespace, so they're defined
+# alongside the keycloak Service they forward to.
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
@@ -16,31 +22,6 @@ spec:
     - web
     - websecure
   routes:
-    # Claude Desktop's "manual OAuth Client ID" connector flow doesn't do
-    # RFC9728/RFC8414 discovery — it assumes the MCP server's own host
-    # implements OAuth directly at conventional /authorize and /token
-    # paths, ignoring the authorization_servers value in our protected
-    # resource metadata. These two routes make that true: they forward
-    # straight to Keycloak (bypassing agentgateway, which has no route for
-    # these paths and previously misrouted them into its LLM proxy) with a
-    # path rewrite to Keycloak's real realm endpoints. More specific than
-    # the catch-all rule below, so Traefik prefers them for these paths.
-    - kind: Rule
-      match: Host(`qdrant-mcp.192.168.1.237.nip.io`) && PathPrefix(`/authorize`)
-      middlewares:
-        - name: qdrant-mcp-oauth-authorize-rewrite
-      services:
-        - name: keycloak
-          namespace: keycloak
-          port: 80
-    - kind: Rule
-      match: Host(`qdrant-mcp.192.168.1.237.nip.io`) && PathPrefix(`/token`)
-      middlewares:
-        - name: qdrant-mcp-oauth-token-rewrite
-      services:
-        - name: keycloak
-          namespace: keycloak
-          port: 80
     - kind: Rule
       match: Host(`qdrant-mcp.192.168.1.237.nip.io`)
       services:
@@ -49,24 +30,3 @@ spec:
           port: 80
   tls:
     secretName: qdrant-mcp-tls
----
-apiVersion: traefik.io/v1alpha1
-kind: Middleware
-metadata:
-  name: qdrant-mcp-oauth-authorize-rewrite
-spec:
-  replacePathRegex:
-    # Traefik matches this against the URL path only — the query string
-    # (response_type, client_id, redirect_uri, code_challenge, etc.) isn't
-    # part of it and is preserved automatically on the rewritten request.
-    regex: ^/authorize$
-    replacement: /realms/mcp/protocol/openid-connect/auth
----
-apiVersion: traefik.io/v1alpha1
-kind: Middleware
-metadata:
-  name: qdrant-mcp-oauth-token-rewrite
-spec:
-  replacePathRegex:
-    regex: ^/token$
-    replacement: /realms/mcp/protocol/openid-connect/token

@@ -20,3 +20,66 @@ spec:
           port: 80
   tls:
     secretName: keycloak-tls
+---
+# Claude Desktop's "manual OAuth Client ID" connector flow doesn't do
+# RFC9728/RFC8414 discovery — it assumes the MCP server's own host
+# implements OAuth directly at conventional /authorize and /token paths,
+# ignoring the authorization_servers value in qdrant-mcp's protected
+# resource metadata (../agentgateway/agentgateway/helmrelease.yaml). These
+# routes make that true for the qdrant-mcp hostname: forward straight to
+# Keycloak with a path rewrite to its real realm endpoints. Lives here
+# (not in the agentgateway IngressRoute) because Traefik's kubernetescrd
+# provider forbids cross-namespace service/middleware references, and
+# this needs to reach the keycloak Service directly.
+#
+# No explicit tls.secretName: the qdrant-mcp-tls cert is already
+# registered with Traefik's SNI store via the agentgateway IngressRoute
+# (../agentgateway/agentgateway/ingressroute.yaml) for this same hostname
+# — TLS termination happens by SNI before HTTP routing, independent of
+# which IngressRoute/namespace the matching router lives in.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: qdrant-mcp-oauth-proxy
+  labels:
+    app: keycloak
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`qdrant-mcp.192.168.1.237.nip.io`) && PathPrefix(`/authorize`)
+      middlewares:
+        - name: qdrant-mcp-oauth-authorize-rewrite
+      services:
+        - name: keycloak
+          port: 80
+    - kind: Rule
+      match: Host(`qdrant-mcp.192.168.1.237.nip.io`) && PathPrefix(`/token`)
+      middlewares:
+        - name: qdrant-mcp-oauth-token-rewrite
+      services:
+        - name: keycloak
+          port: 80
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: qdrant-mcp-oauth-authorize-rewrite
+spec:
+  replacePathRegex:
+    # Traefik matches this against the URL path only — the query string
+    # (response_type, client_id, redirect_uri, code_challenge, etc.) isn't
+    # part of it and is preserved automatically on the rewritten request.
+    regex: ^/authorize$
+    replacement: /realms/mcp/protocol/openid-connect/auth
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: qdrant-mcp-oauth-token-rewrite
+spec:
+  replacePathRegex:
+    regex: ^/token$
+    replacement: /realms/mcp/protocol/openid-connect/token
