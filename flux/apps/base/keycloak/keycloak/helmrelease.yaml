@@ -103,6 +103,13 @@ spec:
                 { "name": "mcp-admin", "description": "Full MCP access" }
               ]
             },
+            "clientScopes": [
+              {
+                "name": "read:all",
+                "protocol": "openid-connect",
+                "description": "Read-only access to MCP tools (advertised in agentgateway's protected-resource metadata - see ../../agentgateway/agentgateway/helmrelease.yaml). Just a scope Keycloak will accept in the OAuth request; not itself enforced."
+              }
+            ],
             "clients": [
               {
                 "clientId": "agentgateway",
@@ -136,6 +143,7 @@ spec:
                 "directAccessGrantsEnabled": true,
                 "redirectUris": ["http://127.0.0.1/*", "https://claude.ai/*"],
                 "webOrigins": ["+"],
+                "optionalClientScopes": ["read:all", "offline_access"],
                 "protocolMappers": [
                   {
                     "name": "aud-agentgateway",
