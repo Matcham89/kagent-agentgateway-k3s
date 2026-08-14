@@ -16,8 +16,13 @@
 # is the same MCP backend, reachable from Anthropic's cloud for the Claude
 # custom connector - Anthropic can't route to the 192.168.1.0/24 LAN, so the
 # nip.io hostname above only works for local/LAN clients (kagent, Hermes).
-# Reached over plain HTTP (entryPoint web only): Cloudflare terminates the
-# public TLS edge, so no cert is needed for this Host on this cluster.
+# Cloudflare terminates the public TLS edge and reaches this origin over
+# plain HTTP, which is why this route is split in two below rather than
+# one IngressRoute listing both entryPoints: in this Traefik install, an
+# IngressRoute with a spec.tls block silently fails to match ANY request
+# on its "web" entryPoint routers, even though "web" is listed alongside
+# "websecure" in spec.entryPoints (reproduced directly against Traefik,
+# bypassing Cloudflare entirely - not a Cloudflare or agentgateway issue).
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
@@ -26,7 +31,6 @@ metadata:
     app: agentgateway-standalone
 spec:
   entryPoints:
-    - web
     - websecure
   routes:
     - kind: Rule
@@ -37,3 +41,20 @@ spec:
           port: 80
   tls:
     secretName: qdrant-mcp-tls
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: qdrant-mcp-server-plain
+  labels:
+    app: agentgateway-standalone
+spec:
+  entryPoints:
+    - web
+  routes:
+    - kind: Rule
+      match: Host(`qdrant-mcp.192.168.1.237.nip.io`) || Host(`qdrant-mcp.kubegit.com`)
+      services:
+        - name: agentgateway-standalone
+          namespace: agentgateway-system
+          port: 80
