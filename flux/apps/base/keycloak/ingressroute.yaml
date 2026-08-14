@@ -77,6 +77,16 @@ spec:
       services:
         - name: keycloak
           port: 80
+    # Keycloak's login theme (CSS/JS/images) is served from this top-level
+    # path, outside any realm prefix. Without it, the login page's own JS
+    # (including its cookie/session-check script) 400s, which surfaces as
+    # confusing cookie_not_found / user_not_found login errors even with
+    # correct credentials, rather than a clean asset-404.
+    - kind: Rule
+      match: Host(`qdrant-mcp.192.168.1.237.nip.io`) && PathPrefix(`/resources`)
+      services:
+        - name: keycloak
+          port: 80
 ---
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
