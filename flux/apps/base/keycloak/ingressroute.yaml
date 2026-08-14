@@ -45,9 +45,29 @@ spec:
   routes:
     - kind: Rule
       match: Host(`keycloak.kubegit.com`) && (PathPrefix(`/realms/mcp`) || PathPrefix(`/resources`))
+      middlewares:
+        - name: force-forwarded-https
       services:
         - name: keycloak
           port: 80
+---
+# Cloudflare's origin request to this route is plain HTTP (public TLS
+# already terminated at Cloudflare's edge), so Traefik correctly-but-
+# unhelpfully reports X-Forwarded-Proto: http to Keycloak, which then
+# bakes http:// into every URL it generates (issuer, authorization_
+# endpoint, etc.) - a string mismatch against agentgateway's https://
+# issuer config, and Claude won't accept a non-https authorization
+# endpoint anyway. Safe to force here specifically: this route is only
+# ever reached via the Cloudflare Tunnel, which has already terminated
+# real public TLS before Traefik ever sees the request.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: force-forwarded-https
+spec:
+  headers:
+    customRequestHeaders:
+      X-Forwarded-Proto: https
 ---
 # Claude Desktop's "manual OAuth Client ID" connector flow doesn't do
 # RFC9728/RFC8414 discovery — it assumes the MCP server's own host
