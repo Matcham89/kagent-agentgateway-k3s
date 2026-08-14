@@ -21,6 +21,34 @@ spec:
   tls:
     secretName: keycloak-tls
 ---
+# Public route for Keycloak's own hostname (Keycloak now bakes
+# keycloak.kubegit.com into every URL it generates — see
+# ../../keycloak/keycloak/helmrelease.yaml — so Anthropic's cloud can
+# reach the real OAuth endpoints Claude discovers, not just a proxy).
+# Deliberately narrow: only the MCP realm's auth-flow paths and its theme
+# assets are routed, so the admin console and other realms stay
+# unreachable from the internet regardless of what Cloudflare forwards -
+# no route here means Traefik 404s before ever reaching Keycloak. No tls
+# block/entryPoint here either: reached over plain HTTP via the Cloudflare
+# Tunnel (../cloudflare-tunnel), and combining a tls block with a "web"
+# entrypoint route in one IngressRoute breaks the latter in this Traefik
+# install (see ../agentgateway/agentgateway/ingressroute.yaml).
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: keycloak-public
+  labels:
+    app: keycloak
+spec:
+  entryPoints:
+    - web
+  routes:
+    - kind: Rule
+      match: Host(`keycloak.kubegit.com`) && (PathPrefix(`/realms/mcp`) || PathPrefix(`/resources`))
+      services:
+        - name: keycloak
+          port: 80
+---
 # Claude Desktop's "manual OAuth Client ID" connector flow doesn't do
 # RFC9728/RFC8414 discovery — it assumes the MCP server's own host
 # implements OAuth directly at conventional /authorize and /token paths,

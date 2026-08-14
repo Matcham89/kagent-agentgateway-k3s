@@ -54,7 +54,15 @@ spec:
     production: false
     # Emit the external HTTPS URL in the OIDC issuer/discovery (Keycloak
     # defaults to http://<service> otherwise, breaking JWT issuer checks).
-    hostname: keycloak.192.168.1.237.nip.io
+    # Public hostname (via the Cloudflare Tunnel - ../../cloudflare-tunnel,
+    # restricted in ../ingressroute.yaml to /realms/mcp and /resources only
+    # - the admin console stays LAN-only at keycloak.192.168.1.237.nip.io)
+    # rather than the LAN-only nip.io one: Keycloak bakes this single value
+    # into every URL it generates (issuer, authorization_endpoint,
+    # token_endpoint, login form actions, etc.), and Claude's cloud
+    # connector needs ALL of those to be reachable from Anthropic's
+    # infrastructure, not just the initial discovery document.
+    hostname: keycloak.kubegit.com
     hostnameStrict: false
     proxyHeaders: xforwarded
 

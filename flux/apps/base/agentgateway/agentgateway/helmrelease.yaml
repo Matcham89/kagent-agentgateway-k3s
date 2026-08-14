@@ -86,17 +86,29 @@ spec:
         # MCP authentication: validate JWTs issued by Keycloak (realm "mcp",
         # client "agentgateway"). Clients (Claude Desktop, Claude Code, the
         # Hermes researcher gateway) get tokens via OAuth/OIDC against
-        # https://keycloak.192.168.1.237.nip.io/realms/mcp. AG acts as the
-        # resource server per the MCP Authorization spec, proxying the
+        # https://keycloak.kubegit.com/realms/mcp. AG acts as the resource
+        # server per the MCP Authorization spec, proxying the
         # authorization-server metadata and validating tokens via JWKS.
         policies:
           # (AG's keycloak provider adapts the JWKS URL automatically).
           mcpAuthentication:
             mode: strict
-            issuer: https://keycloak.192.168.1.237.nip.io/realms/mcp
+            # Must exactly string-match the "iss" claim Keycloak puts in
+            # every token, which is derived from its own hostname config
+            # (../../keycloak/keycloak/helmrelease.yaml) - now the public
+            # kubegit.com one, not the LAN-only nip.io one. Any token
+            # minted before that change (e.g. the static
+            # qdrant-mcp-oauth-token kagent/Hermes use) has the old issuer
+            # baked in and needs re-minting.
+            issuer: https://keycloak.kubegit.com/realms/mcp
             audiences:
               - agentgateway
             jwks:
+              # Deliberately still the LAN address, not kubegit.com: this
+              # is AG fetching signing keys itself (in-cluster), not a
+              # claim to string-match, so there's no reason to route it
+              # out through the tunnel and back when the fast LAN path
+              # already works and returns the identical key set.
               url: https://keycloak.192.168.1.237.nip.io/realms/mcp/protocol/openid-connect/certs
             provider:
               keycloak: {}
@@ -110,17 +122,12 @@ spec:
               # Claude's custom connector, since Anthropic's cloud can't
               # reach the LAN-only nip.io hostname.
               resource: https://qdrant-mcp.kubegit.com/mcp/http
-              # Self-referential rather than Keycloak's raw issuer URL: AG
-              # correctly proxies real RFC8414 metadata at
-              # /.well-known/oauth-authorization-server/mcp/http on its own
-              # host (mirroring its resource path), but Keycloak itself only
-              # serves discovery docs at the OIDC "path-then-well-known"
-              # convention (/realms/mcp/.well-known/...), not the RFC8414
-              # "well-known-then-path" convention a strict client would
-              # construct from a bare issuer URL with a path component —
-              # pointing there directly 404s for such clients.
+              # Keycloak's real issuer, now that it's genuinely publicly
+              # reachable (see ../../keycloak/keycloak/helmrelease.yaml and
+              # ../../keycloak/ingressroute.yaml) rather than the LAN-only
+              # nip.io host discovery would have resolved to before.
               authorizationServers:
-                - https://qdrant-mcp.kubegit.com/mcp/http
+                - https://keycloak.kubegit.com/realms/mcp
               scopesSupported:
                 - read:all
               bearerMethodsSupported:
