@@ -6,12 +6,6 @@
 # client configs only change auth (add token), not the URL. TLS cert from
 # the qdrant-mcp-tls secret (homelab local CA, imperative).
 #
-# The /authorize and /token proxy routes for Claude Desktop's manual OAuth
-# flow live in ../../keycloak/ingressroute.yaml instead of here — Traefik's
-# kubernetescrd provider forbids an IngressRoute's services (and
-# middlewares) from referencing another namespace, so they're defined
-# alongside the keycloak Service they forward to.
-#
 # qdrant-mcp.kubegit.com (via the Cloudflare Tunnel - ../../cloudflare-tunnel)
 # is the same MCP backend, reachable from Anthropic's cloud for the Claude
 # custom connector - Anthropic can't route to the 192.168.1.0/24 LAN, so the
