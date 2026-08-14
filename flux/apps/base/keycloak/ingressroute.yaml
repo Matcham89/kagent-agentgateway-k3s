@@ -62,6 +62,21 @@ spec:
       services:
         - name: keycloak
           port: 80
+    # Keycloak's proxyHeaders: xforwarded config makes it trust the
+    # incoming X-Forwarded-Host (which Traefik sets to whatever hostname
+    # the browser actually used) over its own configured `hostname` when
+    # building in-page links — so the interactive login form it renders
+    # for /authorize posts back to login-actions/authenticate on this same
+    # qdrant-mcp host, not keycloak's own. Proxy the whole realm path
+    # through unmodified (these are already real Keycloak paths, no
+    # rewrite needed) so the rest of the browser-driven login flow
+    # (OTP/required actions/etc.) keeps working regardless of which
+    # sub-path Keycloak generates next.
+    - kind: Rule
+      match: Host(`qdrant-mcp.192.168.1.237.nip.io`) && PathPrefix(`/realms/mcp`)
+      services:
+        - name: keycloak
+          port: 80
 ---
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
