@@ -51,15 +51,17 @@ spec:
         - name: keycloak
           port: 80
 ---
-# Cloudflare's origin request to this route is plain HTTP (public TLS
-# already terminated at Cloudflare's edge), so Traefik correctly-but-
-# unhelpfully reports X-Forwarded-Proto: http to Keycloak, which then
-# bakes http:// into every URL it generates (issuer, authorization_
-# endpoint, etc.) - a string mismatch against agentgateway's https://
-# issuer config, and Claude won't accept a non-https authorization
-# endpoint anyway. Safe to force here specifically: this route is only
-# ever reached via the Cloudflare Tunnel, which has already terminated
-# real public TLS before Traefik ever sees the request.
+# Cloudflare's origin request to this route is plain HTTP on port 80
+# (public TLS already terminated at Cloudflare's edge), so Traefik
+# correctly-but-unhelpfully reports X-Forwarded-Proto: http and
+# X-Forwarded-Port: 80 to Keycloak - true for the Traefik hop, not for
+# the original client connection - which then bakes http://...:80 into
+# every URL it generates (issuer, authorization_endpoint, etc.): a
+# scheme AND port mismatch against agentgateway's plain https:// issuer
+# config (no port), and Claude won't accept a non-https authorization
+# endpoint anyway. Safe to override both here specifically: this route
+# is only ever reached via the Cloudflare Tunnel, which has already
+# terminated real public TLS on 443 before Traefik sees anything.
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
@@ -68,6 +70,7 @@ spec:
   headers:
     customRequestHeaders:
       X-Forwarded-Proto: https
+      X-Forwarded-Port: "443"
 ---
 # Claude Desktop's "manual OAuth Client ID" connector flow doesn't do
 # RFC9728/RFC8414 discovery — it assumes the MCP server's own host
