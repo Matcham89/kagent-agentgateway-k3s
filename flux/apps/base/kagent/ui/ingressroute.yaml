@@ -1,0 +1,26 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/traefik/traefik/v3.5/pkg/provider/kubernetes/crd/traefik.io_ingressroutes.yaml
+# Public route for the kagent web UI via the Cloudflare Tunnel
+# (../../cloudflare-tunnel). Named kagent-k3s (not kagent.kubegit.com) -
+# that hostname is already claimed by home-cluster's own kagent instance
+# in the same shared tunnel (../../../../home-cluster/flux/apps/base/
+# ingress/httproutes/kagent.yaml), pointed at a different cluster
+# entirely. No tls block/entrypoint: reached over plain HTTP via the
+# tunnel, and combining a tls block with a "web" entrypoint route in one
+# IngressRoute breaks the latter in this Traefik install (see
+# ../../agentgateway/agentgateway/ingressroute.yaml).
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: kagent-ui-public
+  labels:
+    app: kagent-ui
+spec:
+  entryPoints:
+    - web
+  routes:
+    - kind: Rule
+      match: Host(`kagent-k3s.kubegit.com`)
+      services:
+        - name: kagent-ui
+          port: 8080

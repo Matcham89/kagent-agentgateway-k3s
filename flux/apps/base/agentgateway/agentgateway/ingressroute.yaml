@@ -52,3 +52,13 @@ spec:
         - name: agentgateway-standalone
           namespace: agentgateway-system
           port: 80
+    # Agent Gateway serves its own admin UI (config.ui in helmrelease.yaml)
+    # on this same port/service at /ui - agentgateway-k3s, not
+    # agentgateway.kubegit.com, which home-cluster's own agentgateway
+    # already claims in this shared tunnel.
+    - kind: Rule
+      match: Host(`agentgateway-k3s.kubegit.com`)
+      services:
+        - name: agentgateway-standalone
+          namespace: agentgateway-system
+          port: 80

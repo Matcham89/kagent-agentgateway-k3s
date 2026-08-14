@@ -25,12 +25,11 @@ spec:
 # keycloak.kubegit.com into every URL it generates — see
 # ../../keycloak/keycloak/helmrelease.yaml — so Anthropic's cloud can
 # reach the real OAuth endpoints Claude discovers, not just a proxy).
-# Deliberately narrow: only the MCP realm's auth-flow paths and its theme
-# assets are routed, so the admin console and other realms stay
-# unreachable from the internet regardless of what Cloudflare forwards -
-# no route here means Traefik 404s before ever reaching Keycloak. No tls
-# block/entryPoint here either: reached over plain HTTP via the Cloudflare
-# Tunnel (../cloudflare-tunnel), and combining a tls block with a "web"
+# /admin is included deliberately (own decision, not a default) - the
+# admin console has no separate auth of its own, it's gated by the same
+# Keycloak login as everything else here. No tls block/entrypoint here
+# either: reached over plain HTTP via the Cloudflare Tunnel
+# (../cloudflare-tunnel), and combining a tls block with a "web"
 # entrypoint route in one IngressRoute breaks the latter in this Traefik
 # install (see ../agentgateway/agentgateway/ingressroute.yaml).
 apiVersion: traefik.io/v1alpha1
@@ -44,7 +43,7 @@ spec:
     - web
   routes:
     - kind: Rule
-      match: Host(`keycloak.kubegit.com`) && (PathPrefix(`/realms/mcp`) || PathPrefix(`/resources`))
+      match: Host(`keycloak.kubegit.com`) && (PathPrefix(`/realms/mcp`) || PathPrefix(`/resources`) || PathPrefix(`/admin`))
       middlewares:
         - name: force-forwarded-https
       services:
