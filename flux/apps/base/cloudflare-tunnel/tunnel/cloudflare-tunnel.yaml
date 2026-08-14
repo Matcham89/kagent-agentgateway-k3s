@@ -1,0 +1,86 @@
+---
+# yaml-language-server: $schema=https://kubernetesjsonschema.dev/master/deployment-apps-v1.json
+# Outbound-only tunnel to Cloudflare's edge, so qdrant-mcp is reachable from
+# Anthropic's cloud (Claude custom connectors are cloud-proxied, not local -
+# they can't route to the 192.168.1.0/24 LAN, and the LAN cert is signed by
+# a homelab CA Anthropic won't trust). No port-forward, no public IP: same
+# pattern as home-cluster's tunnel (../../../../home-cluster/flux/apps/base/
+# ingress/tunnel), just a plain Deployment since cloudflared isn't a chart.
+#
+# Public hostname -> origin mapping is configured in the Cloudflare Zero
+# Trust dashboard for this tunnel (remotely-managed mode via TUNNEL_TOKEN),
+# not here - same as home-cluster. Origin is Traefik itself
+# (traefik.kube-system.svc.cluster.local:80) with an HTTP Host Header
+# override of qdrant-mcp.kubegit.com, so Traefik's existing Host()-based
+# routing (agentgateway for MCP traffic, Keycloak for the OAuth/login
+# paths - see ../../agentgateway/agentgateway/ingressroute.yaml and
+# ../../keycloak/ingressroute.yaml) applies unchanged.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      pod: cloudflared
+  template:
+    metadata:
+      labels:
+        pod: cloudflared
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+        sysctls:
+          - name: net.ipv4.ping_group_range
+            value: "65532 65532"
+      containers:
+        - image: cloudflare/cloudflared:2026.6.0
+          name: cloudflared
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: cloudflare-tunnel-token
+                  key: token
+          command:
+            - cloudflared
+            - tunnel
+            - --no-autoupdate
+            - --loglevel
+            - info
+            - --metrics
+            - 0.0.0.0:2000
+            - run
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 2000
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 2000
+            failureThreshold: 3
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3

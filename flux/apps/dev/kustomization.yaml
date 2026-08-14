@@ -16,3 +16,4 @@ resources:
   - ./demo
   - ./mcp-servers
   - ./qdrant
+  - ./cloudflare-tunnel

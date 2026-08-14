@@ -105,16 +105,22 @@ spec:
               # server URL exactly as entered in Claude (including path),
               # not an internal label — otherwise Claude can't validate the
               # metadata and silently falls back to guessing /authorize and
-              # /token at the connector's origin.
-              resource: https://qdrant-mcp.192.168.1.237.nip.io/mcp/http
-              # Without this, AG defaults authorization_servers to its own
-              # resource URL in the RFC9728 metadata, so OAuth clients (e.g.
-              # Claude) try to hit AG's own host at /authorize instead of
-              # Keycloak's real endpoint — AG has no such route, and the
-              # request falls through to the LLM proxy, returning a
-              # confusing "LLM request body must be valid JSON" error.
+              # /token at the connector's origin. qdrant-mcp.kubegit.com
+              # (via the Cloudflare Tunnel) is what's actually entered in
+              # Claude's custom connector, since Anthropic's cloud can't
+              # reach the LAN-only nip.io hostname.
+              resource: https://qdrant-mcp.kubegit.com/mcp/http
+              # Self-referential rather than Keycloak's raw issuer URL: AG
+              # correctly proxies real RFC8414 metadata at
+              # /.well-known/oauth-authorization-server/mcp/http on its own
+              # host (mirroring its resource path), but Keycloak itself only
+              # serves discovery docs at the OIDC "path-then-well-known"
+              # convention (/realms/mcp/.well-known/...), not the RFC8414
+              # "well-known-then-path" convention a strict client would
+              # construct from a bare issuer URL with a path component —
+              # pointing there directly 404s for such clients.
               authorizationServers:
-                - https://keycloak.192.168.1.237.nip.io/realms/mcp
+                - https://qdrant-mcp.kubegit.com/mcp/http
               scopesSupported:
                 - read:all
               bearerMethodsSupported:

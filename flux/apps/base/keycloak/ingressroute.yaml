@@ -36,7 +36,10 @@ spec:
 # registered with Traefik's SNI store via the agentgateway IngressRoute
 # (../agentgateway/agentgateway/ingressroute.yaml) for this same hostname
 # — TLS termination happens by SNI before HTTP routing, independent of
-# which IngressRoute/namespace the matching router lives in.
+# which IngressRoute/namespace the matching router lives in. The
+# qdrant-mcp.kubegit.com Host has no cert here at all - it's only reached
+# over plain HTTP via the Cloudflare Tunnel (../cloudflare-tunnel), which
+# terminates public TLS at Cloudflare's edge.
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
@@ -49,14 +52,14 @@ spec:
     - websecure
   routes:
     - kind: Rule
-      match: Host(`qdrant-mcp.192.168.1.237.nip.io`) && PathPrefix(`/authorize`)
+      match: (Host(`qdrant-mcp.192.168.1.237.nip.io`) || Host(`qdrant-mcp.kubegit.com`)) && PathPrefix(`/authorize`)
       middlewares:
         - name: qdrant-mcp-oauth-authorize-rewrite
       services:
         - name: keycloak
           port: 80
     - kind: Rule
-      match: Host(`qdrant-mcp.192.168.1.237.nip.io`) && PathPrefix(`/token`)
+      match: (Host(`qdrant-mcp.192.168.1.237.nip.io`) || Host(`qdrant-mcp.kubegit.com`)) && PathPrefix(`/token`)
       middlewares:
         - name: qdrant-mcp-oauth-token-rewrite
       services:
@@ -73,7 +76,7 @@ spec:
     # (OTP/required actions/etc.) keeps working regardless of which
     # sub-path Keycloak generates next.
     - kind: Rule
-      match: Host(`qdrant-mcp.192.168.1.237.nip.io`) && PathPrefix(`/realms/mcp`)
+      match: (Host(`qdrant-mcp.192.168.1.237.nip.io`) || Host(`qdrant-mcp.kubegit.com`)) && PathPrefix(`/realms/mcp`)
       services:
         - name: keycloak
           port: 80
@@ -83,7 +86,7 @@ spec:
     # confusing cookie_not_found / user_not_found login errors even with
     # correct credentials, rather than a clean asset-404.
     - kind: Rule
-      match: Host(`qdrant-mcp.192.168.1.237.nip.io`) && PathPrefix(`/resources`)
+      match: (Host(`qdrant-mcp.192.168.1.237.nip.io`) || Host(`qdrant-mcp.kubegit.com`)) && PathPrefix(`/resources`)
       services:
         - name: keycloak
           port: 80

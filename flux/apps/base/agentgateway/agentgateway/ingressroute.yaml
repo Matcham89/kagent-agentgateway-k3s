@@ -11,6 +11,13 @@
 # kubernetescrd provider forbids an IngressRoute's services (and
 # middlewares) from referencing another namespace, so they're defined
 # alongside the keycloak Service they forward to.
+#
+# qdrant-mcp.kubegit.com (via the Cloudflare Tunnel - ../../cloudflare-tunnel)
+# is the same MCP backend, reachable from Anthropic's cloud for the Claude
+# custom connector - Anthropic can't route to the 192.168.1.0/24 LAN, so the
+# nip.io hostname above only works for local/LAN clients (kagent, Hermes).
+# Reached over plain HTTP (entryPoint web only): Cloudflare terminates the
+# public TLS edge, so no cert is needed for this Host on this cluster.
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
@@ -23,7 +30,7 @@ spec:
     - websecure
   routes:
     - kind: Rule
-      match: Host(`qdrant-mcp.192.168.1.237.nip.io`)
+      match: Host(`qdrant-mcp.192.168.1.237.nip.io`) || Host(`qdrant-mcp.kubegit.com`)
       services:
         - name: agentgateway-standalone
           namespace: agentgateway-system
