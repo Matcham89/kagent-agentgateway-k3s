@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
   - ./deployment.yaml
   - ./entrypoint-configmap.yaml
+  - ./ingressroute.yaml

@@ -1,0 +1,22 @@
+# LAN-only direct route to the qdrant-mcp backend, bypassing Agent Gateway.
+# Backend is auth-free (see deployment.yaml); the researcher gateway on the
+# homelab LAN connects straight here — no Keycloak JWT needed.
+# TLS secret qdrant-mcp-lan-tls is created out-of-band (kubectl create secret
+# tls, cert minted from ~/certs/qdrant-mcp CA) so the private key stays out of
+# git; recreate it if the cluster is rebuilt.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: qdrant-mcp-lan
+  namespace: mcp-servers
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`qdrant-mcp-lan.192.168.1.237.nip.io`)
+      services:
+        - name: qdrant-mcp-server
+          port: 8000
+  tls:
+    secretName: qdrant-mcp-lan-tls
