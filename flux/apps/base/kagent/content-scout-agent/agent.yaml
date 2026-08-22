@@ -1,20 +1,23 @@
 ---
-# yaml-language-server: $schema=../../../../../../schemas/agent.schema.json
+# yaml-language-server: $schema=../../../../../../schemas/agentharness.schema.json
 # Declarative Agent for content research — a GitOps-managed counterpart to the
 # Hermes-backed content-scout AgentHarness. Uses kagent's Python ADK runtime
 # with the shell tool for web research and the qdrant-mcp for memory storage.
 apiVersion: kagent.dev/v1alpha2
-kind: Agent
+kind: AgentHarness
 metadata:
   name: content-scout-v2
 spec:
-  type: Declarative
+  backend: hermes
+  modelConfigRef: default-model-config
+  substrate:
+    workerPoolRef:
+      name: kagent-default
   description: >-
     DevOps/SRE content idea researcher — scouts YouTube, Reddit, HN, and blogs
     for fresh content ideas and stores them in Qdrant for downstream drafting
   declarative:
-    runtime: python
-    modelConfig: default-model-config
+    runtime: go
     promptTemplate:
       dataSources:
         - alias: builtin
@@ -99,9 +102,7 @@ spec:
         mcpServer:
           apiGroup: kagent.dev
           kind: RemoteMCPServer
-          name: qdrant-find
-      - type: McpServer
-        mcpServer:
-          apiGroup: kagent.dev
-          kind: RemoteMCPServer
-          name: qdrant-store
+          name: qdrant-mcp
+          toolNames:
+            - qdrant-find
+            - qdrant-store

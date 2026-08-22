@@ -1,0 +1,46 @@
+---
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: scout
+  namespace: kagent
+spec:
+  type: Declarative
+  description: Scout agent with shell and qdrant tools
+  declarative:
+    runtime: python
+    modelConfig: default-model-config
+    promptTemplate:
+      dataSources:
+        - alias: builtin
+          kind: ConfigMap
+          name: kagent-builtin-prompts
+    systemMessage: |
+      You are a research scout agent. Use the shell tool to fetch information
+      and the qdrant tools to store and retrieve findings.
+
+      ## Tools Available
+      - `shell` — execute shell commands and fetch web content
+      - `qdrant-find` — search existing findings in Qdrant
+      - `qdrant-store` — store new findings in Qdrant
+
+      ## Instructions
+      1. Use shell for web research (curl, wget, python3)
+      2. Use qdrant-find to check for existing similar findings
+      3. Use qdrant-store to save new findings with metadata
+    tools:
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: kagent-tool-server
+          toolNames:
+            - shell
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: qdrant-mcp
+          toolNames:
+            - qdrant-find
+            - qdrant-store
