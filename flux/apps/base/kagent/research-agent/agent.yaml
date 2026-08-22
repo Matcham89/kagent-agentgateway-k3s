@@ -1,14 +1,16 @@
 ---
 apiVersion: kagent.dev/v1alpha2
-kind: Agent
+kind: SandboxAgent
 metadata:
   name: research-agent
   namespace: kagent
 spec:
-  type: Declarative
-  description: Research agent with qdrant access for content idea discovery
+  description: Research agent with qdrant access for content idea discovery (Go, Substrate-sandboxed)
+  substrate:
+    workerPoolRef:
+      name: kagent-default
   declarative:
-    runtime: python
+    runtime: go
     modelConfig: default-model-config
     promptTemplate:
       dataSources:
@@ -16,7 +18,7 @@ spec:
           kind: ConfigMap
           name: kagent-builtin-prompts
     systemMessage: |
-      You are a research agent. Use qdrant tools to discover and retrieve ideas.
+      You are a research agent running in a sandboxed environment. Use qdrant tools to discover and retrieve ideas.
 
       ## Available Tools
       - `qdrant-find` — search existing ideas in Qdrant
