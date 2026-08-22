@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://raw.githubusercontent.com/kagent-dev/kagent/main/config/crd/bases/kagent.dev_agentharnesses.yaml
+# yaml-language-server: $schema=../../../../../../schemas/agentharness.schema.json
 # Autonomous research/scouting agent: browses the web for content ideas and
 # writes findings into Qdrant via the qdrant-mcp RemoteMCPServer
 # (../qdrant-mcp/remotemcpserver.yaml).
@@ -28,3 +28,4 @@ spec:
   substrate:
     workerPoolRef:
       name: kagent-default
+

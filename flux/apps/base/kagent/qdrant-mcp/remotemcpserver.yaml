@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://raw.githubusercontent.com/kagent-dev/kagent/main/config/crd/bases/kagent.dev_remotemcpservers.yaml
+# yaml-language-server: $schema=../../../../schemas/remotemcpserver.schema.json
 # Registers the shared qdrant-mcp server
 # (../../mcp-servers/qdrant-mcp/deployment.yaml) as a tool source for kagent
 # agents — same shape as the kagent chart's own bundled RemoteMCPServers
