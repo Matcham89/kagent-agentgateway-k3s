@@ -1,0 +1,13 @@
+---
+apiVersion: kagent.dev/v1alpha2
+kind: AgentHarness
+metadata:
+  name: qdrant-harness
+  namespace: kagent
+spec:
+  backend: hermes
+  modelConfigRef: default-model-config
+  description: Agent harness with access to shell and qdrant tools
+  substrate:
+    workerPoolRef:
+      name: kagent-default
