@@ -3,6 +3,7 @@
 apiVersion: onepassword.com/v1
 kind: OnePasswordItem
 metadata:
-  name: agentgateway-anthropic
+  name: agentgateway-openrouter
 spec:
-  itemPath: "vaults/wlgvy5jij6zg2sb25nju4nyjnm/items/HOLMESGPT_ANTHROPIC_API_KEY"
+  # OnePasswordItem only materialises a Secret in its own namespace.
+  itemPath: "vaults/wlgvy5jij6zg2sb25nju4nyjnm/items/OPENROUTER_API_KEY"

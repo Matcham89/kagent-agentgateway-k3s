@@ -61,6 +61,11 @@ spec:
           secretKeyRef:
             name: agentgateway-anthropic
             key: HOLMESGPT_ANTHROPIC_API_KEY
+      - name: OPENROUTER_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: agentgateway-openrouter
+            key: OPENROUTER_API_KEY
       - name: SSL_CERT_FILE
         value: /certs/ca-bundle.crt
 
