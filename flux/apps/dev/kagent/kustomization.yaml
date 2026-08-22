@@ -11,7 +11,6 @@ resources:
   - ./crds/ks.yaml
   - ./model-secret/ks.yaml
   - ./operator/ks.yaml
-  - ./resource-limits/ks.yaml
   - ./qdrant-mcp/ks.yaml
   - ./qdrant-sandbox/ks.yaml
   - ./ui/ks.yaml
