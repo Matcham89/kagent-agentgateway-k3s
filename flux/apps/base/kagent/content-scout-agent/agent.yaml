@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://raw.githubusercontent.com/kagent-dev/kagent/main/config/crd/bases/kagent.dev_agents.yaml
+# yaml-language-server: $schema=../../../../../../schemas/agent.schema.json
 # Declarative Agent for content research — a GitOps-managed counterpart to the
 # Hermes-backed content-scout AgentHarness. Uses kagent's Python ADK runtime
 # with the shell tool for web research and the qdrant-mcp for memory storage.
