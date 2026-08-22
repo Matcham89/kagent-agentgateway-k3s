@@ -74,16 +74,6 @@ spec:
           cpu: 10m
           memory: 256Mi
 
-    # Hermes backend configuration for AgentHarness
-    hermes:
-      mcpServers:
-        - name: qdrant-mcp
-          url: http://qdrant-mcp-server.mcp-servers.svc.cluster.local:8000/mcp
-          protocol: streamable_http
-          tools:
-            - qdrant-find
-            - qdrant-store
-
     k8s-agent:
       enabled: true
       resources:

@@ -13,4 +13,5 @@ resources:
   - ./operator/ks.yaml
   - ./qdrant-mcp/ks.yaml
   - ./qdrant-sandbox/ks.yaml
+  - ./research-agent/ks.yaml
   - ./ui/ks.yaml

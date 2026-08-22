@@ -1,0 +1,23 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app kagent-research-agent
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  dependsOn:
+    - name: kagent-crds
+    - name: kagent-operator
+    - name: kagent-qdrant-mcp
+  interval: 1h
+  path: ./flux/apps/base/kagent/research-agent
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: kagent
+  timeout: 5m
+  prune: true
+  wait: true

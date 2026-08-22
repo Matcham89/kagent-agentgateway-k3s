@@ -1,0 +1,37 @@
+---
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: research-agent
+  namespace: kagent
+spec:
+  type: Declarative
+  description: Research agent with qdrant access for content idea discovery
+  declarative:
+    runtime: python
+    modelConfig: default-model-config
+    promptTemplate:
+      dataSources:
+        - alias: builtin
+          kind: ConfigMap
+          name: kagent-builtin-prompts
+    systemMessage: |
+      You are a research agent. Use qdrant tools to discover and retrieve ideas.
+
+      ## Available Tools
+      - `qdrant-find` — search existing ideas in Qdrant
+      - `qdrant-store` — store new ideas in Qdrant
+
+      ## Instructions
+      1. Use qdrant-find to search for relevant ideas
+      2. Use qdrant-store to save findings
+      3. Report results clearly
+    tools:
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: qdrant-mcp
+          toolNames:
+            - qdrant-find
+            - qdrant-store
