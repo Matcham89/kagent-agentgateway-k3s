@@ -13,5 +13,6 @@ resources:
   - ./operator/ks.yaml
   - ./qdrant-mcp/ks.yaml
   - ./scout-harness/ks.yaml
+  - ./qdrant-sandbox/ks.yaml
   - ./scout-agent/ks.yaml
   - ./ui/ks.yaml

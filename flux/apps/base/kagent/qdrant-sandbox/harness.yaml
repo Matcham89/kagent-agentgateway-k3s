@@ -1,0 +1,13 @@
+---
+apiVersion: kagent.dev/v1alpha2
+kind: AgentHarness
+metadata:
+  name: qdrant-sandbox
+  namespace: kagent
+spec:
+  backend: hermes
+  modelConfigRef: default-model-config
+  description: Standalone Hermes sandbox with access to global qdrant-mcp
+  substrate:
+    workerPoolRef:
+      name: kagent-default
