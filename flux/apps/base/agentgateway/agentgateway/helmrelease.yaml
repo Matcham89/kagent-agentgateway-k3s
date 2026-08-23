@@ -152,3 +152,7 @@ spec:
             provider: anthropic
             params:
               apiKey: "$ANTHROPIC_API_KEY"
+          - name: "claude-sonnet-5"
+            provider: openrouter
+            params:
+              apiKey: "$OPENROUTER_API_KEY"
