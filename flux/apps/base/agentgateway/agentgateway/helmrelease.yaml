@@ -148,11 +148,15 @@ spec:
             # ate-system, traefik). AG is the single auth boundary.
       llm:
         models:
-#          - name: "claude-sonnet-5"
-#            provider: anthropic
-#            params:
-#              apiKey: "$ANTHROPIC_API_KEY"
           - name: "claude-sonnet-5"
+            provider: anthropic
+            params:
+              apiKey: "$ANTHROPIC_API_KEY"
+          - name: "anthropic/claude-sonnet-5"
+            provider: openrouter
+            params:
+              apiKey: "$OPENROUTER_API_KEY"
+          - name: "google/gemini-3.7-flash"
             provider: openrouter
             params:
               apiKey: "$OPENROUTER_API_KEY"
