@@ -148,10 +148,10 @@ spec:
             # ate-system, traefik). AG is the single auth boundary.
       llm:
         models:
-          - name: "claude-sonnet-5"
-            provider: anthropic
-            params:
-              apiKey: "$ANTHROPIC_API_KEY"
+#          - name: "claude-sonnet-5"
+#            provider: anthropic
+#            params:
+#              apiKey: "$ANTHROPIC_API_KEY"
           - name: "claude-sonnet-5"
             provider: openrouter
             params:
