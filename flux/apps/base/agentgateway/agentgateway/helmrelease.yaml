@@ -152,3 +152,9 @@ spec:
                 provider: openrouter
                 params:
                   apiKey: "$OPENROUTER_API_KEY"
+              - name: openrouter/*
+                provider: openrouter
+                transformation:
+                  model: llmRequest.model.stripPrefix("openrouter/")
+                params:
+                  apiKey: "$OPENROUTER_API_KEY"
