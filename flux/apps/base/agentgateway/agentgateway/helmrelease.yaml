@@ -147,7 +147,7 @@ spec:
             # (NetworkPolicy restricts access to agentgateway-system, kagent,
             # ate-system, traefik). AG is the single auth boundary.
       llm:
-#        models:
+        models:
 #          - name: "*"
 #            provider: anthropic
 #            params:
