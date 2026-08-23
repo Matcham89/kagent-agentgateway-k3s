@@ -93,6 +93,12 @@ spec:
             provider: openrouter
             params:
               apiKey: "$OPENROUTER_API_KEY"
+          - name: openrouter/*
+            provider: openrouter
+            transformation:
+              model: llmRequest.model.stripPrefix("openrouter/")
+            params:
+              apiKey: "$OPENROUTER_API_KEY"
       mcp:
         # MCP authentication: validate JWTs issued by Keycloak (realm "mcp",
         # client "agentgateway"). Clients (Claude Desktop, Claude Code, the
