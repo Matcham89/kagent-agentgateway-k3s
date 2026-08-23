@@ -146,13 +146,9 @@ spec:
             # No backendAuth: the qdrant backend is auth-free internally
             # (NetworkPolicy restricts access to agentgateway-system, kagent,
             # ate-system, traefik). AG is the single auth boundary.
-      llm:
-        models:
-#          - name: "*"
-#            provider: anthropic
-#            params:
-#              apiKey: "$ANTHROPIC_API_KEY"
-          - name: "*"
-            provider: openrouter
-            params:
-              apiKey: "$OPENROUTER_API_KEY"
+            llm:
+              models:
+              - name: "*"
+                provider: openrouter
+                params:
+                  apiKey: "$OPENROUTER_API_KEY"
