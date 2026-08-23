@@ -89,16 +89,10 @@ spec:
       ui: {}
       llm:
         models:
-        - name: "*"
-          provider: openrouter
-          params:
-            apiKey: "$OPENROUTER_API_KEY"
-        - name: openrouter/*
-          provider: openrouter
-          transformation:
-            model: llmRequest.model.stripPrefix("openrouter/")
-          params:
-            apiKey: "$OPENROUTER_API_KEY"
+          - name: "*"
+            provider: openrouter
+            params:
+              apiKey: "$OPENROUTER_API_KEY"
       mcp:
         # MCP authentication: validate JWTs issued by Keycloak (realm "mcp",
         # client "agentgateway"). Clients (Claude Desktop, Claude Code, the
@@ -151,17 +145,7 @@ spec:
                 - header
                 - body
                 - query
-       targets:
-          - llm:
-              models:
-                - name: '*'
-                  params:
-                    apiKey: $ANTHROPIC_API_KEY
-                  provider: anthropic
-                - name: '*'
-                  params:
-                    apiKey: $OPENROUTER_API_KEY
-                  provider: openrouter
+        targets:
+          - name: qdrant
             mcp:
               host: http://qdrant-mcp-server.mcp-servers.svc.cluster.local:8000/mcp/
-            name: qdrant
