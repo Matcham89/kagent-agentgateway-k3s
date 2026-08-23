@@ -151,10 +151,17 @@ spec:
                 - header
                 - body
                 - query
-        targets:
-          - name: qdrant
+       targets:
+          - llm:
+              models:
+                - name: '*'
+                  params:
+                    apiKey: $ANTHROPIC_API_KEY
+                  provider: anthropic
+                - name: '*'
+                  params:
+                    apiKey: $OPENROUTER_API_KEY
+                  provider: openrouter
             mcp:
               host: http://qdrant-mcp-server.mcp-servers.svc.cluster.local:8000/mcp/
-            # No backendAuth: the qdrant backend is auth-free internally
-            # (NetworkPolicy restricts access to agentgateway-system, kagent,
-            # ate-system, traefik). AG is the single auth boundary.
+            name: qdrant
